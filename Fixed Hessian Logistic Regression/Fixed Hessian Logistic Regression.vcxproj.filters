@@ -24,6 +24,9 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Fixed Hessian.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logregtools.h">
@@ -32,9 +35,15 @@
     <ClInclude Include="databasetools.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="main.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="edin.txt">
+      <Filter>Source Files</Filter>
+    </Text>
+    <Text Include="idash.txt">
       <Filter>Source Files</Filter>
     </Text>
   </ItemGroup>

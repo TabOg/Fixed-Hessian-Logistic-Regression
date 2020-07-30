@@ -28,5 +28,7 @@ void CVRandomSampling(dMat*& train, dMat*& test, dMat data);
 void AllSum(Ciphertext encrypted, Ciphertext& allsum, int slot_count, shared_ptr<SEALContext> context, GaloisKeys gal_keys);
 int ImportDataLR_eighth(dMat& Matrix, string filename);
 int ImportDataLR_half(dMat& Matrix, string filename);
+int ImportDataLR_yfirst(dMat& Z, string filename);
+int ImportDataLR_half_yfirst(dMat& Matrix, string filename);
 
 #endif

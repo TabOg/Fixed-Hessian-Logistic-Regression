@@ -95,8 +95,8 @@ double getAUC(dVec theta, dMat zTest) {
                 if (xtheta_y0[j] <= xtheta_y1[i]) auc++;
             }
         }
-        /*auc /= xtheta_y1.size() * xtheta_y0.size();*/
-        cout << "AUC: " << auc << endl;
+        auc /= xtheta_y1.size() * xtheta_y0.size();
+        
         return auc;
 
     }
