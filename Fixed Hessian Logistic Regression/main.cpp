@@ -103,6 +103,8 @@ int main() {
     cout << "done. Time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
     
     //time to calculate 1/H(i,i) -- first we need our starting point, T1 + T2D
+    cout << "Calculating 1/H(i)...";
+    start = chrono::steady_clock::now();
     Plaintext P_T1, P_T2;
     double t1, t2;
     t1 = T1(2.5 * n);
@@ -153,7 +155,10 @@ int main() {
             evaluator.add_inplace(H[i], ctemp);            
         }
     }
-    cout << "1\n";
+    end = chrono::steady_clock::now();
+    diff = end - start;
+    cout << "done. Time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
+    
     //precompute AllSum: AllSum[i] = sum(zji/2)
     cVec AllSum;
     AllSum.reserve(nfeatures);
@@ -167,7 +172,7 @@ int main() {
         }
         AllSum.push_back(allsumtemp);
     }
-    cout << "2\n";
+    
     //compute first iteration: beta[i]=H[i]AllSum[i]
     cVec Beta;
     
@@ -181,9 +186,8 @@ int main() {
         evaluator.rescale_to_next_inplace(allsumtemp);
         Beta.push_back(allsumtemp);
     }
-    cout << "3\n";
     
-    /*AllSum = Beta;*/
+    
     //we will also need (a copy of) each data vector to be multiplied by 5/8: we do this now
     cVec dataencscale;
     dataencscale = dataenc;
@@ -199,7 +203,7 @@ int main() {
         
     }
     dVec weights(nfeatures, 0.0);
-    cout << "4\n";
+    
     for (int i = 0; i < nfeatures; i++) {
         decryptor.decrypt(Beta[i], plain);
         encoder.decode(plain, input);
@@ -208,18 +212,18 @@ int main() {
     }
     Matrix.clear();
     ImportDataLR(Matrix, "edin.txt");
-    cout << "accuracy is: " << accuracy_LR(weights, Matrix) << "%\n";
-    cout << "AUC is: " << 100*AUC(weights, Matrix) << "%\n";
+    cout << "1st iteration accuracy: " << accuracy_LR(weights, Matrix) << "%\n";
+    cout << "1st iteration AUC: " << 100*AUC(weights, Matrix) << "%\n";
     //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i](AllSum[i] -5/8sum Beta.z(j)/2.z(ji)/2
     
     for (int k = 2; k < 5; k++) {
-     
+            
         //calculate the inner product: this is the only calculation where we can't go feature by feature
         evaluator.mod_switch_to_inplace(dataenc[0], Beta[0].parms_id());
         evaluator.multiply(dataenc[0], Beta[0], Htemp);
         evaluator.relinearize_inplace(Htemp,relin_keys);
         evaluator.rescale_to_next_inplace(Htemp);
-        cout << "5\n";
+        
         for (int i = 1; i < nfeatures; i++) {
             evaluator.mod_switch_to_inplace(dataenc[i], Beta[i].parms_id());
             evaluator.multiply(dataenc[i], Beta[i], ctemp);
@@ -238,14 +242,14 @@ int main() {
             evaluator.multiply(dataencscale[i], Htemp, ctemp);
             evaluator.relinearize_inplace(ctemp,relin_keys);
             evaluator.rescale_to_next_inplace(ctemp);
-            /*cout << "8\n";*/
+            
             //now we need to allsum this vector:
             for (int j = 0; j < log2(slot_count); j++) {
                 allsumtemp = ctemp;
                 evaluator.rotate_vector_inplace(allsumtemp, pow(2, j), gal_keys);
                 evaluator.add_inplace(ctemp, allsumtemp);
             }
-            /*cout << "9\n";*/
+            
             //subtract this from AllSum[i], first switching down & modifying scale
             allsumtemp = AllSum[i];
             evaluator.mod_switch_to_inplace(allsumtemp, ctemp.parms_id());
