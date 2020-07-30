@@ -159,6 +159,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="logregtools.cpp" />
     <ClCompile Include="Fixed Hessian.cpp" />
+    <ClCompile Include="NAG.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="databasetools.h" />

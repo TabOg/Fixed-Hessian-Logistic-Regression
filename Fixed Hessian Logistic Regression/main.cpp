@@ -8,5 +8,5 @@ using namespace std;
 using namespace seal;
 
 int main() {
-
+	Nesterov_GD();
 }
