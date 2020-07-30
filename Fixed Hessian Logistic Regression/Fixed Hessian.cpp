@@ -8,7 +8,7 @@ using namespace seal;
 
 int Fixed_Hessian_Chebyshev() {
     dMat Matrix;
-    ImportDataLR_half(Matrix, "edin.txt");
+    ImportDataLR(Matrix, "edin.txt",false,2);
     int n = Matrix.size();
     int nfeatures = Matrix[0].size();
 
@@ -196,11 +196,6 @@ int Fixed_Hessian_Chebyshev() {
     for (int i = 0; i < nfeatures; i++) {
         evaluator.multiply_plain_inplace(dataencscale[i], plain);
         evaluator.rescale_to_next_inplace(dataencscale[i]);
-        /*evaluator.mod_switch_to_inplace(dataencscale[i], H[i].parms_id());
-        evaluator.multiply_inplace(dataencscale[i], H[i]);
-        evaluator.relinearize_inplace(dataencscale[i], relin_keys);
-        evaluator.rescale_to_next_inplace(dataenc[i]);*/
-
     }
     dVec weights(nfeatures, 0.0);
 
@@ -211,7 +206,7 @@ int Fixed_Hessian_Chebyshev() {
         weights[i] /= input.size();
     }
     Matrix.clear();
-    ImportDataLR(Matrix, "edin.txt");
+    ImportDataLR(Matrix, "edin.txt",false);
     cout << "1st iteration accuracy: " << accuracy_LR(weights, Matrix) << "%\n";
     cout << "1st iteration AUC: " << 100 * getAUC(weights, Matrix) << "%\n";
     //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i](AllSum[i] -5/8sum Beta.z(j)/2.z(ji)/2
@@ -276,7 +271,7 @@ int Fixed_Hessian_Chebyshev() {
             weights[i] /= input.size();
         }
         Matrix.clear();
-        ImportDataLR(Matrix, "edin.txt");
+        ImportDataLR(Matrix, "edin.txt",false);
         cout << "iteration " << k << " accuracy is: " << accuracy_LR(weights, Matrix) << "%\n";
         cout << "AUC is: " << 100 * getAUC(weights, Matrix) << "%\n";
     }
@@ -292,7 +287,7 @@ int Fixed_Hessian_Chebyshev() {
         weights[i] /= input.size();
     }
     Matrix.clear();
-    ImportDataLR(Matrix, "edin.txt");
+    ImportDataLR(Matrix, "edin.txt",false);
     cout << "accuracy is: " << accuracy_LR(weights, Matrix) << "%\n";
     cout << "AUC is: " << 100 * getAUC(weights, Matrix) << "%\n";
     return 0;
@@ -300,7 +295,7 @@ int Fixed_Hessian_Chebyshev() {
 
 int Fixed_Hessian_Taylor() {
     dMat Matrix;
-    ImportDataLR_half(Matrix, "edin.txt");
+    ImportDataLR(Matrix, "edin.txt",false,2);
     int n = Matrix.size();
     int nfeatures = Matrix[0].size();
 
@@ -501,7 +496,7 @@ int Fixed_Hessian_Taylor() {
         weights[i] /= input.size();
     }
     Matrix.clear();
-    ImportDataLR(Matrix, "edin.txt");
+    ImportDataLR(Matrix, "edin.txt",false);
     cout << "accuracy is: " << accuracy_LR(weights, Matrix) << "%\n";
     cout << "AUC is: " << 100 * getAUC(weights, Matrix) << "%\n";
     //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i]AllSum[i] -sum Beta.z(j)/2.z(ji)/2
@@ -559,7 +554,7 @@ int Fixed_Hessian_Taylor() {
             weights[i] /= input.size();
         }
         Matrix.clear();
-        ImportDataLR(Matrix, "edin.txt");
+        ImportDataLR(Matrix, "edin.txt",false);
         cout << "iteration " << k << " accuracy is: " << accuracy_LR(weights, Matrix) << "%\n";
         cout << "AUC is: " << 100 * getAUC(weights, Matrix) << "%\n";
     }
@@ -575,7 +570,7 @@ int Fixed_Hessian_Taylor() {
         weights[i] /= input.size();
     }
     Matrix.clear();
-    ImportDataLR(Matrix, "edin.txt");
+    ImportDataLR(Matrix, "edin.txt",false);
     cout << "accuracy is: " << accuracy_LR(weights, Matrix) << "%\n";
     cout << "AUC is: " << 100 * getAUC(weights, Matrix) << "%\n";
     return 0;

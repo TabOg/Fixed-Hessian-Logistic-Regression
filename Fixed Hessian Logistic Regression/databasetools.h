@@ -22,13 +22,9 @@ typedef vector<Ciphertext> cVec;
 typedef vector<Plaintext> pVec;
 
 int ImportData(dMat& Z, string filename);
-int ImportDataLR(dMat& Z, string filename);
 double inner_prod(dVec v, dVec u, int start = 0);
 void CVRandomSampling(dMat*& train, dMat*& test, dMat data);
 void AllSum(Ciphertext encrypted, Ciphertext& allsum, int slot_count, shared_ptr<SEALContext> context, GaloisKeys gal_keys);
-int ImportDataLR_eighth(dMat& Matrix, string filename);
-int ImportDataLR_half(dMat& Matrix, string filename);
-int ImportDataLR_yfirst(dMat& Z, string filename);
-int ImportDataLR_half_yfirst(dMat& Matrix, string filename);
+int ImportDataLR(dMat& Matrix, string filename, bool first, double divisor = 1, char split_char = '\t');
 
 #endif

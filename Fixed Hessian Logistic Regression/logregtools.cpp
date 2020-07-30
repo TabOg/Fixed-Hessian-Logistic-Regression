@@ -78,12 +78,7 @@ double getAUC(dVec theta, dMat zTest) {
         }
     }
 
-    /*double correctness = 100.0 - (100.0 * (n_fail_y0 + n_fail_y1) / zTest.size());
-    cout << "Failure rate: (y = 1) " << n_fail_y1 << "/" << xtheta_y1.size() << " + (y = 0) " << n_fail_y0 << "/";
-    cout << xtheta_y0.size() << " = " << (100.0 * (n_fail_y0 + n_fail_y1) / zTest.size()) << " %." << endl;
-    cout << "Correctness: " << correctness << " %." << endl;*/
-
-
+   
     if (xtheta_y0.size() == 0 || xtheta_y1.size() == 0) {
         cout << "n_test_yi = 0 : cannot compute AUC" << endl;
         return 0.0;
@@ -95,31 +90,14 @@ double getAUC(dVec theta, dMat zTest) {
                 if (xtheta_y0[j] <= xtheta_y1[i]) auc++;
             }
         }
-        auc /= xtheta_y1.size() * xtheta_y0.size();
+        auc /= xtheta_y1.size();
+        auc /=xtheta_y0.size();
         
         return auc;
 
     }
 }
 
-double AUC(dVec weights, dMat test) {
-    dVec D0;
-    dVec D1;
-    //sort into positive a negative samples, only pushing back the relevant dot product:
-    for (int i = 0; i < test.size(); i++) {
-        if (test[i][0] == -1)D0.push_back(test[i][0] * inner_prod(test[i], weights));
-        else D1.push_back(test[i][0] * inner_prod(test[i], weights));
-    }
-    double auc = 0;
-    for (int i = 0; i < D0.size(); i++) {
-        for (int j = 0; j < D1.size(); j++) {
-            if (D0[i] < D1[j]) auc++;
-        }
-    }
-    auc /= D0.size();
-    auc /= D1.size();
-    return auc;
-}
 
 //one iteration of Nesterov's gradient descent: not great to be extracting dimensions each time? 
 int LR_NV_iteration(dMat train, dVec& beta, dVec& v, double alpha, double gamma, int n, int nfeatures) {
@@ -168,6 +146,6 @@ double T1(double X) {
 }
 
 double T2(double X) {
-    return (-1*8) / (X * X + 6 * X + 1);
+    return (-1.*8) / (X * X + 6 * X + 1);
 }
 

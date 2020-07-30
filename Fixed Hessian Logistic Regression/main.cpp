@@ -8,7 +8,7 @@ using namespace std;
 using namespace seal;
 
 int main() {
-    Fixed_Hessian_Taylor();
+    Fixed_Hessian_Chebyshev();
  //   dMat Matrix;
  //   ImportDataLR_half_yfirst(Matrix, "idash.txt");
  //   int n = Matrix.size();

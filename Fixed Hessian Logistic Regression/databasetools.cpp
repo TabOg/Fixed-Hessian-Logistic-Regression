@@ -62,55 +62,7 @@ int ImportData(dMat& Matrix, string filename) {
 
 	return 0;
 }
-int ImportDataLR(dMat& Matrix, string filename) {
-	//open file
-	ifstream inFile;
-	inFile.open(filename);
-	//check file is open
-	if (!inFile) {
-		cout << "unable to open file";
-		return 0;
-	}
 
-	string line;
-	char split_char = '\t';
-	int ncolumns;
-	//process first row, moving class to the front and extracting number of columns
-	if (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		ncolumns = record.size();
-		vector<double> entry1;
-		entry1.push_back(stod(record[1.*ncolumns - 1]) * 2 - 1);
-		//preprocessing for logistic regression
-		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
-		//add to matrix
-		Matrix.push_back(entry1);
-	}
-	else {
-		cout << "could not read file" << exit;
-	}
-	//process rest of the data
-	while (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		//record should have the same number of features
-		if (record.size() != ncolumns) {
-			cout << "database dimension error" << exit;
-		}
-		//define a new entry
-		vector<double> entryi;
-		entryi.push_back(stod(record[ncolumns - 1]) * 2 - 1);
-		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
-		//add it to the matrix
-		Matrix.push_back(entryi);
-	}
-
-	return 0;
-
-}
 double inner_prod(dVec v, dVec u, int start) {
 	if (v.size() != u.size()) {
 		cout << "error - vectors are different sizes";
@@ -235,9 +187,15 @@ int ImportDataLR_eighth(dMat& Matrix, string filename) {
 
 }
 
+int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, char split_char) {
+	//This function imports data from a .txt file with the following adjustments: changes classification
+	//from {0,1} to {-1,1}; moves the classification to the first (0th) column if it is not there; 
+	//multiplies each entry 1 - d by the classification; divides all entries by the divisor.
+	//first = true: classification is in the first column of the .txt file
+	//split_char is the character that splits up entries in the .txt file: default is tab
 
-int ImportDataLR_half(dMat& Matrix, string filename){
 	//open file
+
 	ifstream inFile;
 	inFile.open(filename);
 	//check file is open
@@ -247,17 +205,19 @@ int ImportDataLR_half(dMat& Matrix, string filename){
 	}
 
 	string line;
-	char split_char = '\t';
-	int ncolumns;
+	int ncolumns,j;
 	//process first row, moving class to the front and extracting number of columns
 	if (getline(inFile, line)) {
 		istringstream split(line);
 		vector<string> record;
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		ncolumns = record.size();
+		//if the classification is at the beginning, set j = 0. Otherwise, set j= ncolumns-1
+		j= first ? 0:(ncolumns-1);
+
 		vector<double> entry1;
-		//divide first entry by two, preprocessing
-		entry1.push_back((stod(record[ncolumns - 1]) * 2 - 1) / 2);
+		//change classification from {0,1} to {-1,1}, and divide entry by divisor
+		entry1.push_back((stod(record[j]) * 2 - 1)/divisor);
 		//preprocessing for logistic regression
 		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
 		//add to matrix
@@ -277,114 +237,11 @@ int ImportDataLR_half(dMat& Matrix, string filename){
 		}
 		//define a new entry
 		vector<double> entryi;
-		//dividing by 2 again
-		entryi.push_back((stod(record[ncolumns - 1]) * 2 - 1) / 2);
+		entryi.push_back((stod(record[j]) * 2 - 1)/divisor);
 		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
 		//add it to the matrix
 		Matrix.push_back(entryi);
 	}
 	return 0;
 }
-int ImportDataLR_yfirst(dMat& Matrix, string filename) {
-	//open file
-	ifstream inFile;
-	inFile.open(filename);
-	//check file is open
-	if (!inFile) {
-		cout << "unable to open file";
-		return 0;
-	}
-
-	string line;
-	char split_char = '\t';
-	int ncolumns;
-	//process first row, moving class to the front and extracting number of columns
-	if (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		ncolumns = record.size();
-		vector<double> entry1;
-		entry1.push_back(stod(record[0]) * 2 - 1);
-		//preprocessing for logistic regression
-		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
-		//add to matrix
-		Matrix.push_back(entry1);
-	}
-	else {
-		cout << "could not read file" << exit;
-	}
-	//process rest of the data
-	while (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		//record should have the same number of features
-		if (record.size() != ncolumns) {
-			cout << "database dimension error" << exit;
-		}
-		//define a new entry
-		vector<double> entryi;
-		entryi.push_back(stod(record[0]) * 2 - 1);
-		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
-		//add it to the matrix
-		Matrix.push_back(entryi);
-	}
-
-	return 0;
-
-}
-
-int ImportDataLR_half_yfirst(dMat& Matrix, string filename) {
-	//open file
-	ifstream inFile;
-	inFile.open(filename);
-	//check file is open
-	if (!inFile) {
-		cout << "unable to open file";
-		return 0;
-	}
-
-	string line;
-	char split_char = '\t';
-	int ncolumns;
-	//process first row, moving class to the front and extracting number of columns
-	if (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		ncolumns = record.size();
-		vector<double> entry1;
-		//divide first entry by two, preprocessing
-		entry1.push_back((stod(record[0]) * 2 - 1) / 2);
-		//preprocessing for logistic regression
-		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
-		//add to matrix
-		Matrix.push_back(entry1);
-	}
-	else {
-		cout << "could not read file" << exit;
-	}
-	//process rest of the data
-	while (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		//record should have the same number of features
-		if (record.size() != ncolumns) {
-			cout << "database dimension error" << exit;
-		}
-		//define a new entry
-		vector<double> entryi;
-		//dividing by 2 again
-		entryi.push_back((stod(record[0]) * 2 - 1) / 2);
-		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
-		//add it to the matrix
-		Matrix.push_back(entryi);
-	}
-	return 0;
-}
-	
-
-
 
