@@ -27,6 +27,9 @@
     <ClCompile Include="Fixed Hessian.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="iDASH2017.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logregtools.h">

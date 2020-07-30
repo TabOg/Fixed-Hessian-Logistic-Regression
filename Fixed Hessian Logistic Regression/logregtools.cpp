@@ -78,24 +78,19 @@ double getAUC(dVec theta, dMat zTest) {
         }
     }
 
-   
-    if (xtheta_y0.size() == 0 || xtheta_y1.size() == 0) {
-        cout << "n_test_yi = 0 : cannot compute AUC" << endl;
-        return 0.0;
-    }
-    else {
-        double auc = 0.0;
-        for (int i = 0; i < xtheta_y1.size(); ++i) {
-            for (int j = 0; j < xtheta_y0.size(); ++j) {
+
+    double auc = 0.0;
+    for (int i = 0; i < xtheta_y1.size(); ++i) {
+        for (int j = 0; j < xtheta_y0.size(); ++j) {
                 if (xtheta_y0[j] <= xtheta_y1[i]) auc++;
             }
         }
-        auc /= xtheta_y1.size();
-        auc /=xtheta_y0.size();
+    auc /= xtheta_y1.size();
+    auc /=xtheta_y0.size();
         
-        return auc;
+    return auc;
 
-    }
+    
 }
 
 

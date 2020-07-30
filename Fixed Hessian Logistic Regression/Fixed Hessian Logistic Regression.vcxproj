@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="databasetools.cpp" />
+    <ClCompile Include="iDASH2017.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="logregtools.cpp" />
     <ClCompile Include="Fixed Hessian.cpp" />

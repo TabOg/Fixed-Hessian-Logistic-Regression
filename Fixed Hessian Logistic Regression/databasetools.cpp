@@ -217,7 +217,7 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 
 		vector<double> entry1;
 		//change classification from {0,1} to {-1,1}, and divide entry by divisor
-		entry1.push_back((stod(record[j]) * 2 - 1)/divisor);
+		entry1.push_back((stod(record[j]) * 2 - 1)/(1.*divisor));
 		//preprocessing for logistic regression
 		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
 		//add to matrix
@@ -237,7 +237,7 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		}
 		//define a new entry
 		vector<double> entryi;
-		entryi.push_back((stod(record[j]) * 2 - 1)/divisor);
+		entryi.push_back((stod(record[j]) * 2 - 1)/(1.*divisor));
 		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
 		//add it to the matrix
 		Matrix.push_back(entryi);

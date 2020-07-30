@@ -107,8 +107,8 @@ int Fixed_Hessian_Chebyshev() {
     start = chrono::steady_clock::now();
     Plaintext P_T1, P_T2;
     double t1, t2;
-    t1 = T1(2.5 * n);
-    t2 = T2(2.5 * n);
+    t1 = T1(0.25*(nfeatures * n));
+    t2 = T2(0.25 * (nfeatures * n));
     encoder.encode(t1, scale, P_T1);
     encoder.encode(t2, scale, P_T2);
 
