@@ -174,8 +174,8 @@ int Nesterov_GD() {
     dMat weightsmat;
     Plaintext p1, p2;
     dVec w1, w2;
-    decryptor.decrypt(Beta1, p1);
-    decryptor.decrypt(Beta2, p2);
+    decryptor.decrypt(v1, p1);
+    decryptor.decrypt(v2, p2);
     encoder.decode(p1, w1);
     encoder.decode(p2, w2);
     weights.clear();
