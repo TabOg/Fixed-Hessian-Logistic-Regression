@@ -7,6 +7,7 @@ using namespace std;
 using namespace seal;
 
 int Nesterov_GD() {
+    cout << "Running Nesterov Accelerated Gradient Descent:\n";
     auto begin = chrono::steady_clock::now();
     dMat Matrix;
     dVec weights;
@@ -359,7 +360,7 @@ int Nesterov_GD() {
         evaluator.add_inplace(poly1temp, allsum1);
         evaluator.add_inplace(poly2temp, allsum2);
 
-        weighttemp1 = Beta1;
+        weighttemp1 = Beta1;    
         weighttemp2 = Beta2;
         Beta1 = v1;
         Beta2 = v2;

@@ -7,6 +7,7 @@ using namespace std;
 using namespace seal;
 
 int Fixed_Hessian_Chebyshev() {
+    cout << "Running Fixed Hessian with Chebyshev sigmoid approximation:\n";
     dMat Matrix;
     ImportDataLR(Matrix, "edin.txt",false,2);
     int n = Matrix.size();
@@ -294,6 +295,7 @@ int Fixed_Hessian_Chebyshev() {
 }
 
 int Fixed_Hessian_Taylor() {
+    cout << "Running Fixed Hessian with Taylor sigmoid approximation:\n";
     dMat Matrix;
     ImportDataLR(Matrix, "edin.txt",false,2);
     int n = Matrix.size();
