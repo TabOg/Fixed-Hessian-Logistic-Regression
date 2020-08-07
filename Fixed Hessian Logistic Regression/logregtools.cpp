@@ -42,7 +42,7 @@ int LR(dMat Matrix, dVec& weights, int max_iter, double learning_rate) {
 
 
 int predict_LR(dVec weights, dVec sample, double threshold) {
-    
+    //calculate a prediction {1,-1} for weights (b0,b1,b2..,) and a sample (z0,z1,z2,...,) 
     //compute probability
     double prob = sigmoid(sample[0]*inner_prod(weights, sample));
     //compare to threshold
@@ -69,11 +69,9 @@ double getAUC(dVec theta, dMat zTest) {
 
     for (int i = 0; i < zTest.size(); ++i) {
         if (zTest[i][0] == 1.0) {
-            if (inner_prod(zTest[i], theta) < 0) n_fail_y1++;
             xtheta_y1.push_back(zTest[i][0] * inner_prod(zTest[i], theta, 1));
         }
         else {
-            if (inner_prod(zTest[i], theta) < 0) n_fail_y0++;
             xtheta_y0.push_back(zTest[i][0] * inner_prod(zTest[i], theta, 1));
         }
     }

@@ -31,7 +31,7 @@ int Nesterov_GD() {
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
 
-    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, { 60,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,60 }));
+    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, { 40,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,40 }));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
     auto context = SEALContext::Create(parms);
@@ -57,7 +57,7 @@ int Nesterov_GD() {
     cout << "Encoding...";
     start = chrono::steady_clock::now();
     double scale = pow(2.0, 30);
-    double scalelow = pow(2.0, 20);
+    
     Plaintext data1, data2;
     encoder.encode(train1, scale, data1);
     encoder.encode(train2, scale, data2);
@@ -76,8 +76,8 @@ int Nesterov_GD() {
     cout << "Encrypting time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
 
     double a0 = 0.5;
-    double a1 = 1.20096;
-    double a3 = -0.81562;
+    double a1 = -1.20096;
+    double a3 = 0.81562;
     double a4 = a1 / a3;
     double sc = 4.0 / (1.0 * n);
     double t = 1.;
@@ -151,7 +151,7 @@ int Nesterov_GD() {
     Plaintext scaler1;
     encoder.encode(sc1, scale, scaler1);
 
-    //Beta is updated to 2/n ctsum
+    //Beta is updated to 5 ctsum
     evaluator.multiply_plain_inplace(Beta1, scaler1);
     evaluator.rescale_to_next_inplace(Beta1);
     evaluator.multiply_plain_inplace(Beta2, scaler1);
@@ -159,7 +159,9 @@ int Nesterov_GD() {
 
     //now update the v, recalling beta_0 is zero: 
     T = (1. + sqrt(1. + 4 * t * t)) / 2.;
-    encoder.encode(1. + ((t - 1) / T), scale, mgammap);
+    double gamma = -(t - 1) / T;
+    double mgamma = 1 - gamma;
+    encoder.encode(mgamma, scale, mgammap);
     t = T;
     evaluator.mod_switch_to_next_inplace(mgammap);
 
@@ -187,16 +189,17 @@ int Nesterov_GD() {
     weights = weightsmat[0];
     
     for (int i = 1; i < nrow; i++) {
-        for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
-
+        for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];        
     }
     for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
-    
-    ImportDataLR(Matrix, "edin.txt", false, 1);
+    cout << "weights vector has "<<weights.size()<<" elements";
+    Matrix.clear();
+    ImportDataLR(Matrix, "edin.txt", false,1.0,'\t');
     cout << "1st iteration AUC is " << 100 * getAUC(weights, Matrix) << "%\n";
     cout << "1st accuracy is " << accuracy_LR(weights, Matrix) << "%";
 
     weightsmat.clear();
+    weights.clear();
 
     //create all the temp variables we will need each iteration
 
@@ -211,37 +214,30 @@ int Nesterov_GD() {
         encoder.encode(alpha, scale, alphap);
         //calculate and encode the weights gamma and 1 - gamma
         T = (1. + sqrt(1. + 4 * t * t)) / 2.;
-        encoder.encode(-(t - 1) / T, scale, gammap);
-        encoder.encode(1. + ((t - 1) / T), scale, mgammap);
+        gamma = -(t - 1) / T;
+        mgamma = 1 - gamma;
+        encoder.encode(gamma, scale, gammap);
+        encoder.encode(mgamma, scale, mgammap);
 
         t = T;
         
         weighttemp1 = v1;
         datatemp = dataenc1;
-        //switch down encrypted data
+        //switch down encrypted data and multiply with the weight vector v
 
         evaluator.mod_switch_to_inplace(datatemp, weighttemp1.parms_id());
-
         evaluator.multiply_inplace(weighttemp1, datatemp);
-
         evaluator.relinearize_inplace(weighttemp1, relin_keys);
-
         evaluator.rescale_to_next_inplace(weighttemp1);
 
         //now for the last 2 columns
         weighttemp2 = v2;
-
         datatemp = dataenc2;
 
-
         evaluator.mod_switch_to_inplace(datatemp, weighttemp2.parms_id());
-
         evaluator.multiply_inplace(weighttemp2, datatemp);
-
         evaluator.relinearize_inplace(weighttemp2, relin_keys);
-
         evaluator.rescale_to_next_inplace(weighttemp2);
-
 
         //allsum to create inner products
 
@@ -312,7 +308,7 @@ int Nesterov_GD() {
         evaluator.relinearize_inplace(poly2temp, relin_keys);
         evaluator.rescale_to_next_inplace(poly2temp);
 
-        //complete polynomial evaluation of 2g(x)-1:
+        //complete polynomial evaluation of (2g(x)-1)zij/8:
 
         evaluator.multiply_inplace(poly1temp, allsum2);
         evaluator.relinearize_inplace(poly1temp, relin_keys);
@@ -330,16 +326,6 @@ int Nesterov_GD() {
         allsum2 = ctsum2;
         evaluator.multiply_plain_inplace(allsum2, alphap);
         evaluator.rescale_to_next_inplace(allsum2);
-        
-        //multiply polytemp 1 and 2 by 4alpha/n:
-        alpha = alpha * sc;
-        encoder.encode(alpha, scale, alphap);
-
-        evaluator.mod_switch_to_inplace(alphap, poly1temp.parms_id());
-        evaluator.multiply_plain_inplace(poly1temp, alphap);
-        evaluator.rescale_to_next_inplace(poly1temp);
-        evaluator.multiply_plain_inplace(poly2temp, alphap);
-        evaluator.rescale_to_next_inplace(poly2temp);
 
         //time to allsum the columns.
         for (int i = 0; i < log2(nrow); i++) {
@@ -353,6 +339,16 @@ int Nesterov_GD() {
             evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
             evaluator.add_inplace(poly2temp, temp);
         }
+
+        //multiply polytemp 1 and 2 by 4alpha/n:
+        alpha = alpha * sc;
+        encoder.encode(alpha, scale, alphap);
+
+        evaluator.mod_switch_to_inplace(alphap, poly1temp.parms_id());
+        evaluator.multiply_plain_inplace(poly1temp, alphap);
+        evaluator.rescale_to_next_inplace(poly1temp);
+        evaluator.multiply_plain_inplace(poly2temp, alphap);
+        evaluator.rescale_to_next_inplace(poly2temp);
 
         //finally complete polynomial evaluation:
         
@@ -407,6 +403,13 @@ int Nesterov_GD() {
         //now update the vectors v1 and v2:
         evaluator.add_inplace(v1, weighttemp1);
         evaluator.add_inplace(v2, weighttemp2);
+
+
+        decryptor.decrypt(v1, p1);
+        decryptor.decrypt(v2, p2);
+        encoder.decode(p1, w1);
+        encoder.decode(p2, w2);
+        weights.clear();
         
         for (int i = 0; i < nrow; i++) {
             for (int j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
@@ -422,7 +425,7 @@ int Nesterov_GD() {
 
         }
         for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
-        
+        cout << "weights vector has " << weights.size() << " elements\n";
         cout << "iteration "<<i<<" AUC is " << 100 * getAUC(weights, Matrix) << "%\n";
         cout << "iteration " << i<< " accuracy is " << accuracy_LR(weights, Matrix) << "%\n";
 
@@ -453,9 +456,8 @@ int Nesterov_GD() {
     
     for (int i = 1; i < nrow; i++) {
         for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
-
     }
-        
+    for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
     cout << "final AUC is " << 100 * getAUC(weights, Matrix) << "%\n";
     cout << "final accuracy is " << accuracy_LR(weights, Matrix) << "%";
     return 0;
