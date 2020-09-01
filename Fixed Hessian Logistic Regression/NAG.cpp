@@ -82,7 +82,7 @@ int Nesterov_GD() {
     double a4 = a1 / a3;
     double sc = 4.0 / (1.0 * n);
     double t = 1.;
-    double T;
+    double T;   
     Plaintext gammap, mgammap;
 
     cout << "encoding polynomial coefficients...";

@@ -8,6 +8,7 @@ using namespace std;
 using namespace seal;
 
 int main() {
+        
     cout << "+---------------------------------------------------------+" << endl;
     cout << "| Select a procedure to run:                              |" << endl;
     cout << "+---------------------------------------------------------+" << endl;
