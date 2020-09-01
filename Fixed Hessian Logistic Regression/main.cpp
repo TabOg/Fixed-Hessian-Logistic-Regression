@@ -29,7 +29,7 @@ int main() {
         {
             invalid = false;
         }
-        else if (selection < 0 || selection > 7)
+        else if (selection < 0 || selection > 3)
         {
             invalid = false;
         }
