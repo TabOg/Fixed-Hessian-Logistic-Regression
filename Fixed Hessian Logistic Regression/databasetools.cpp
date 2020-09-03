@@ -244,4 +244,7 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 	}
 	return 0;
 }
+bool is_number(const std::string& s) {
+	return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
+}
 

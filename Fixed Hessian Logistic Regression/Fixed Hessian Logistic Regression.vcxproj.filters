@@ -33,6 +33,12 @@
     <ClCompile Include="NAG.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="GD.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="plaintextLR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="logregtools.h">

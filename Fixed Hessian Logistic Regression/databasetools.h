@@ -26,5 +26,5 @@ double inner_prod(dVec v, dVec u, int start = 0);
 void CVRandomSampling(dMat*& train, dMat*& test, dMat data);
 void AllSum(Ciphertext encrypted, Ciphertext& allsum, int slot_count, shared_ptr<SEALContext> context, GaloisKeys gal_keys);
 int ImportDataLR(dMat& Matrix, string filename, bool first, double divisor = 1, char split_char = '\t');
-
+bool is_number(const std::string& s);
 #endif

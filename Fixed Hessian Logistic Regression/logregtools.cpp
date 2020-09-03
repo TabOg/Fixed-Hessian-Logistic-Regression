@@ -69,10 +69,10 @@ double getAUC(dVec theta, dMat zTest) {
 
     for (int i = 0; i < zTest.size(); ++i) {
         if (zTest[i][0] == 1.0) {
-            xtheta_y1.push_back(zTest[i][0] * inner_prod(zTest[i], theta, 1));
+            xtheta_y1.push_back(zTest[i][0] * inner_prod(zTest[i], theta));
         }
         else {
-            xtheta_y0.push_back(zTest[i][0] * inner_prod(zTest[i], theta, 1));
+            xtheta_y0.push_back(zTest[i][0] * inner_prod(zTest[i], theta));
         }
     }
 

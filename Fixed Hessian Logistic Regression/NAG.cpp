@@ -8,7 +8,7 @@ using namespace seal;
 
 int Nesterov_GD() {
     cout << "Running Nesterov Accelerated Gradient Descent:\n";
-    auto begin = chrono::steady_clock::now();
+    
     dMat Matrix;
     dVec weights;
     ImportDataLR(Matrix, "edin.txt",false,8);
@@ -32,7 +32,7 @@ int Nesterov_GD() {
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
 
-    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, { 40,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,40 }));
+    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, { 40,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,40 }));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
     auto context = SEALContext::Create(parms);
@@ -84,7 +84,7 @@ int Nesterov_GD() {
     double t = 1.;
     double T;   
     Plaintext gammap, mgammap;
-
+    auto begin = chrono::steady_clock::now();
     cout << "encoding polynomial coefficients...";
     Plaintext coeff0, coeff1, coeff3, coeff4, coeff4temp, scaler;
     encoder.encode(a0, scale, coeff0);
@@ -114,7 +114,7 @@ int Nesterov_GD() {
     evaluator.rescale_to_next_inplace(poly2);
     cout << "done. \n";
 
-    cout << "creating allsum matrices...";
+    cout << "creating allsum matrices...\n";
     //this plays an analogous role to ct.sum. In column i, all entries are sum(z_ij/8)
     Ciphertext temp, ctsum1, ctsum2;
     ctsum1 = dataenc1;
@@ -158,18 +158,13 @@ int Nesterov_GD() {
     evaluator.multiply_plain_inplace(Beta2, scaler1);
     evaluator.rescale_to_next_inplace(Beta2);
 
-    //now update the v, recalling beta_0 is zero: 
-    T = (1. + sqrt(1. + 4 * t * t)) / 2.;
-    double gamma = -(t - 1) / T;
-    double mgamma = 1 - gamma;
-    encoder.encode(mgamma, scale, mgammap);
-    t = T;
-    evaluator.mod_switch_to_next_inplace(mgammap);
+    //now update the v, since gamma1 = 0:
+    v1 = Beta1;
+    v2 = Beta2;
+    //update t
+    t = (1. + sqrt(1. + 4 * t * t)) / 2.;
 
-    evaluator.multiply_plain(Beta1, mgammap, v1);
-    evaluator.multiply_plain(Beta2, mgammap, v2);
-    evaluator.rescale_to_next_inplace(v1);
-    evaluator.rescale_to_next_inplace(v2);
+    double gamma, mgamma;
 
     dMat weightsmat;
     Plaintext p1, p2;
@@ -193,9 +188,8 @@ int Nesterov_GD() {
         for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];        
     }
     for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
-    cout << "weights vector has "<<weights.size()<<" elements";
     Matrix.clear();
-    ImportDataLR(Matrix, "edin.txt", false,1.0,'\t');
+    ImportDataLR(Matrix, "edin.txt", false, 1.0, '\t');
     cout << "1st iteration AUC is " << 100 * getAUC(weights, Matrix) << "%\n";
     cout << "1st accuracy is " << accuracy_LR(weights, Matrix) << "%";
 
@@ -426,7 +420,6 @@ int Nesterov_GD() {
 
         }
         for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
-        cout << "weights vector has " << weights.size() << " elements\n";
         cout << "iteration "<<i<<" AUC is " << 100 * getAUC(weights, Matrix) << "%\n";
         cout << "iteration " << i<< " accuracy is " << accuracy_LR(weights, Matrix) << "%\n";
 
