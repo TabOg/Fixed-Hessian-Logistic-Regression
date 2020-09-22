@@ -76,56 +76,6 @@ double inner_prod(dVec v, dVec u, int start) {
 
 }
 
-void CVRandomSampling(dMat*& train, dMat*& test, dMat data) {
-
-	int n = data.size();
-	int n_test[5];
-	//generate data fold sizes, equal sizes but losing up to 4 records
-	int m = floor(n / 5);
-	n_test[0] = m;
-	n_test[1] = m;
-	n_test[2] = m;
-	n_test[3] = m;
-	n_test[4] = n - 4 * m;
-	//label all pieces of vector as "unchosen"
-	vector<bool> randombits(n, false);
-
-	//form test[i] for i = 0,...,3
-	for (int i = 0; i < 4; i++) {
-		//start a counter
-		int k = 0;
-		while (k < n_test[i]) {
-			//sample a random number from [data.size()]
-			int j = rand() % data.size();
-			//if it's unchosen, add it to the fold & change to true
-			if (randombits[j] == false) {
-				randombits[j] = true;
-				test[i].push_back(data[j]);
-				k++;
-			}
-		}
-	}
-	//add the remaining records to the fifth fold
-	for (int i = 0; i < n; i++) {
-		if (randombits[i] == false)test[4].push_back(data[i]);
-	}
-
-	//generate the training sets train[0],...,train[4]
-	for (int m = 0; m < 5; ++m) {
-		for (int l = m + 1; l < 5; ++l) {
-			for (int i = 0; i < n_test[l]; ++i) {
-				train[m].push_back(test[l][i]);
-			}
-		}
-
-		for (int l = 0; l < m; ++l) {
-			for (int i = 0; i < n_test[l]; ++i) {
-				train[m].push_back(test[l][i]);
-			}
-		}
-	}
-}
-
 void AllSum(Ciphertext encrypted, Ciphertext& allsum, int slot_count, shared_ptr<SEALContext> context, GaloisKeys gal_keys) {
 	Evaluator evaluator(context);
 	allsum = encrypted;
@@ -248,3 +198,52 @@ bool is_number(const std::string& s) {
 	return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
 
+void CVrandomSampling(dMatMat& CVtrain, dMatMat& CVtest, dMat data) {
+	/*srand(time(NULL));*/
+	dMat train, test;
+	int n = data.size();
+	int m = floor(n / 5);
+
+	int n_test[5];
+	n_test[0] = m;
+	n_test[1] = m;
+	n_test[2] = m;
+	n_test[3] = m;
+	n_test[4] = n - 4 * m;
+
+	//label all pieces of vector as "unchosen"
+	dVec sort(n, -1);
+
+	//decide where each record will go
+	for (int i = 0; i < 5; i++) {
+		//start a counter
+		int counter = 0;
+		while (counter < n_test[i]) {
+			//sample a random number from [data.size()]
+			int j = rand() % data.size();
+			//if it's unchosen, add it to the fold
+			if (sort[j] == -1) {
+				sort[j] += 1 * (i + 1);
+				//now add record to testing fold
+				test.push_back(data[j]);
+				counter++;
+			}		}
+		CVtest.push_back(test);
+		test.clear();
+	}
+	//form the training sets. 
+	for (int m = 0; m < 5; m++) {
+		for (int l = m + 1; l < 5; l++) {
+			for (int i = 0; i < n_test[l]; i++) {
+				train.push_back(CVtest[l][i]);
+			}
+		}
+		for (int l = 0; l < m; l++) {
+			for (int i = 0; i < n_test[l]; i++) {
+				train.push_back(CVtest[l][i]);
+			}
+		}
+		CVtrain.push_back(train);
+		train.clear();
+	}
+}

@@ -41,25 +41,25 @@ int LR(dMat Matrix, dVec& weights, int max_iter, double learning_rate) {
 }
 
 
-int predict_LR(dVec weights, dVec sample, double threshold) {
-    //calculate a prediction {1,-1} for weights (b0,b1,b2..,) and a sample (z0,z1,z2,...,) 
+int predict_LR(dVec weights, dVec sample, double divisor, double threshold) {
+    //calculate a prediction {1,-1} for weights (b0,b1,b2..,) and a sample (z0/div,z1/div,z2/div,...,) 
     //compute probability
-    double prob = sigmoid(sample[0]*inner_prod(weights, sample));
+    double prob = sigmoid(divisor * divisor * sample[0] * inner_prod(weights, sample));
     //compare to threshold
     if (prob > threshold) return 1;
     else return -1;
-
 }
 
-double accuracy_LR(dVec weights, dMat test, double threshold) {
+double accuracy_LR(dVec weights, dMat test, double divisor,double threshold) {
     double score = 0;
     for (int i = 0; i < test.size(); i++) {
-        if (predict_LR(weights, test[i], threshold) == test[i][0])score++;
+        if (predict_LR(weights, test[i], divisor, threshold) == divisor * test[i][0])score++;
     }
     return 100 * score / test.size();
 }
 
-double getAUC(dVec theta, dMat zTest) {
+double getAUC(dVec theta, dMat zTest,double divisor) {
+    //calculates the AUC when the test set is given by entries of the form (z10/div,z11/div,...,z1d/div)
     //initialise counters
     int n_fail_y1 = 0;
     int n_fail_y0 = 0;
@@ -67,12 +67,12 @@ double getAUC(dVec theta, dMat zTest) {
     dVec xtheta_y1;
     dVec xtheta_y0;
 
-    for (int i = 0; i < zTest.size(); ++i) {
-        if (zTest[i][0] == 1.0) {
-            xtheta_y1.push_back(zTest[i][0] * inner_prod(zTest[i], theta));
+    for (int i = 0; i < zTest.size(); i++) {
+        if (divisor * zTest[i][0] == 1.0) {
+            xtheta_y1.push_back(divisor * divisor * zTest[i][0] * inner_prod(zTest[i], theta));
         }
         else {
-            xtheta_y0.push_back(zTest[i][0] * inner_prod(zTest[i], theta));
+            xtheta_y0.push_back(divisor * divisor * zTest[i][0] * inner_prod(zTest[i], theta));
         }
     }
 
