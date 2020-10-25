@@ -2,6 +2,7 @@
 #include <iostream>
 #include "databasetools.h"
 #include "logregtools.h"
+#include "algorithm"
 
 using namespace std;
 using namespace seal;
@@ -94,21 +95,20 @@ int Fixed_Hessian_Chebyshev() {
         //creating H: first add all ciphertexts
         H.clear();
         for (int i = 1; i < nfeatures; i++)evaluator.add_inplace(ctemp, dataenc[1. * nfeatures - 1 - i]);
-
+        H = dataenc;
         //now create H(i,i)
         for (int i = 0; i < nfeatures; i++) {
-            evaluator.multiply(dataenc[i], ctemp, Htemp);
-            evaluator.relinearize_inplace(Htemp, relin_keys);
-            evaluator.rescale_to_next_inplace(Htemp);
-            //allsum Htemp
-            allsumtemp = Htemp;
+            evaluator.multiply_inplace(H[i], ctemp);
+            evaluator.relinearize_inplace(H[i], relin_keys);
+            evaluator.rescale_to_next_inplace(H[i]);
+            //allsum H[i]
+            allsumtemp = H[i];
             for (int j = 0; j < log2(slot_count); j++) {
-                Htemp = allsumtemp;
-                evaluator.rotate_vector(Htemp, pow(2, j), gal_keys, Htemp);
-                evaluator.add_inplace(allsumtemp, Htemp);
+                H[i] = allsumtemp;
+                evaluator.rotate_vector(H[i], pow(2, j), gal_keys, H[i]);
+                evaluator.add_inplace(allsumtemp, H[i]);
             }
-            //push back H(i,i) to the vector H
-            H.push_back(allsumtemp);
+            H[i] = allsumtemp;
         }
         //time to calculate 1/H(i,i) -- first we need our starting point, T1 + T2D
         cout << "Calculating 1/H(i)...";

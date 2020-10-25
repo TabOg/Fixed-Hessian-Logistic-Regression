@@ -5,7 +5,6 @@
 #include <fstream>
 #include <sstream>
 #include "math.h"
-#include "seal/seal.h"
 #include "databasetools.h"
 
 
@@ -60,9 +59,6 @@ double accuracy_LR(dVec weights, dMat test, double divisor,double threshold) {
 
 double getAUC(dVec theta, dMat zTest,double divisor) {
     //calculates the AUC when the test set is given by entries of the form (z10/div,z11/div,...,z1d/div)
-    //initialise counters
-    int n_fail_y1 = 0;
-    int n_fail_y0 = 0;
 
     dVec xtheta_y1;
     dVec xtheta_y0;

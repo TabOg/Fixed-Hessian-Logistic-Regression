@@ -23,9 +23,9 @@ int GD() {
     mod.push_back(38);
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
-    cout << "Generating context...";
+    cout << "Generating context..."<<endl;
     auto start = chrono::steady_clock::now();
-    auto context = SEALContext::Create(parms, true, sec_level_type::none);
+    auto context = SEALContext::Create(parms, true,sec_level_type::none);
     KeyGenerator keygen(context);
     PublicKey public_key = keygen.public_key();
     SecretKey secret_key = keygen.secret_key();
@@ -38,19 +38,16 @@ int GD() {
 
     auto end = chrono::steady_clock::now();
     auto diff = end - start;
-    cout << "KeyGen time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
+    cout << "KeyGen time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n"<<endl;
     CKKSEncoder encoder(context);
 
     size_t slot_count = encoder.slot_count();
-
-
-    double a0 = 0.5;
     double a1 = -1.20096;
     double a3 = 0.81562;
     double a4 = a1 / a3;
     double sc;
     double scale = pow(2.0, 28);
-    cout << "encoding polynomial coefficients...";
+    cout << "encoding polynomial coefficients..."<<endl;
     Plaintext coeff3, coeff4;
     encoder.encode(2 * a3, scale, coeff3);
     encoder.encode(a4, scale, coeff4);
@@ -73,7 +70,7 @@ int GD() {
         n = cvtrain[l].size();
         nfeatures = cvtrain[l][0].size();
         sc = 4.0 / (1.0 * n);
-        cout << "Encoding...";
+        cout << "Encoding..."<<endl;
         start = chrono::steady_clock::now();
         for (int i = 0; i < nfeatures; i++) {
             input.clear();
@@ -86,7 +83,7 @@ int GD() {
         cout << "Encoding time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
 
         start = chrono::steady_clock::now();
-        cout << "Encrypting...";
+        cout << "Encrypting..."<<endl;
         dataenc.clear();
         for (int i = 0; i < nfeatures; i++) {
             encryptor.encrypt(data[i], datatemp);
@@ -123,9 +120,9 @@ int GD() {
         for (int i = 0; i < nfeatures; i++) {
             decryptor.decrypt(Beta[i], plain);
             encoder.decode(plain, input);
-            weights.push_back(accumulate(input.begin(), input.end(), 0.0) / (1.0 * input.size()));
+            weights.push_back(input[0]);
         }
-        cout << "fold " << l + 1 << " 1st iteration AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
+        cout << "fold " << l + 1 << " 1st iteration AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%,";
         cout << "1st iteration accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
         cVec dataencscale = dataenc;
         for (int i = 0; i < dataenc.size(); i++) {
@@ -201,8 +198,8 @@ int GD() {
                 encoder.decode(plain, input);
                 weights.push_back(input[0]);
             }
-            cout << "iteration " << k << " AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
-            cout << "iteration " << k << " accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%";
+            cout << "iteration " << k << " AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%,";
+            cout << "iteration " << k << " accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
         }
         cout << "fold " << l + 1 << " CV accuracy is " << accuracy_LR(weights, cvtest[l], 8) << "%\n";
         cout << "fold " << l + 1 << " CV AUC is " << getAUC(weights, cvtest[l], 8) << "\n";
