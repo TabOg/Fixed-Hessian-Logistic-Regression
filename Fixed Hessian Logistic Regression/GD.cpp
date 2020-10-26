@@ -8,25 +8,35 @@ using namespace std;
 using namespace seal;
 
 int GD() {
+    thread_pool::threadpool tp(std::thread::hardware_concurrency());
+
     double accuracy = 0;
     double auc = 0;
     dMat Matrix;
+    
     ImportDataLR(Matrix, "edin.txt", false, 8);
     dMatMat cvtrain, cvtest;
     CVrandomSampling(cvtrain, cvtest, Matrix);
     Matrix.clear();
+    
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = 32768;
-    vector<int> mod;
+
+    constexpr size_t poly_modulus_degree = 32768;
+    constexpr size_t mod_size = 27;
+    vector<int> mod(mod_size, 38);
+    mod[0] = 38;
+    mod[mod_size-1] = 38;
     mod.push_back(38);
-    for (int i = 0; i < 25; i++)mod.push_back(28);
-    mod.push_back(38);
+    
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
+    
     cout << "Generating context..."<<endl;
     auto start = chrono::steady_clock::now();
     auto context = SEALContext::Create(parms, true,sec_level_type::none);
+    
     KeyGenerator keygen(context);
+    
     PublicKey public_key = keygen.public_key();
     SecretKey secret_key = keygen.secret_key();
     RelinKeys relin_keys = keygen.relin_keys_local();
@@ -38,18 +48,21 @@ int GD() {
 
     auto end = chrono::steady_clock::now();
     auto diff = end - start;
-    cout << "KeyGen time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n"<<endl;
+    cout << "KeyGen time = " << chrono::duration_cast<chrono::seconds>(diff).count() << " s." << endl;
     CKKSEncoder encoder(context);
 
     size_t slot_count = encoder.slot_count();
-    double a1 = -1.20096;
-    double a3 = 0.81562;
+    constexpr double a1 = -1.20096;
+    constexpr double a3 = 0.81562;
     double a4 = a1 / a3;
+
     double sc;
     double scale = pow(2.0, 28);
+    
     cout << "encoding polynomial coefficients..."<<endl;
     Plaintext coeff3, coeff4;
-    encoder.encode(2 * a3, scale, coeff3);
+
+    encoder.encode(2 * a3, scale, coeff3);    
     encoder.encode(a4, scale, coeff4);
     cout << "done \n";
     cout << "Number of slots: " << slot_count << "\n";
