@@ -138,13 +138,18 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		vector<string> record;
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		//record should have the same number of features
-		if (record.size() != ncolumns + 3) {
+		if (record.size() != ncolumns) {
 			cout << "database dimension error" << exit;
 		}
 		//define a new entry
 		vector<double> entryi;
 		entryi.push_back((stod(record[j]) * 2 - 1)/(1.*divisor));
-		for (int i = 0; i < ncolumns - 4; i++) entryi.push_back(stod(record[i]) * entryi[0]);
+		if (first) {
+			for (int i = 1; i < ncolumns; i++) entryi.push_back(stod(record[i]) * entryi[0]);
+		}
+		else {
+			for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
+		}
 		//add it to the matrix
 		Matrix.push_back(entryi);
 	}

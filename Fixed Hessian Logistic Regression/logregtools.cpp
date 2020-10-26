@@ -71,8 +71,6 @@ double getAUC(dVec theta, dMat zTest,double divisor) {
             xtheta_y0.push_back(divisor * divisor * zTest[i][0] * inner_prod(zTest[i], theta));
         }
     }
-    cout << xtheta_y0.size()<<",";
-    cout << xtheta_y1.size();
     double auc = 0.0;
     for (int i = 0; i < xtheta_y1.size(); ++i) {
         for (int j = 0; j < xtheta_y0.size(); ++j) {

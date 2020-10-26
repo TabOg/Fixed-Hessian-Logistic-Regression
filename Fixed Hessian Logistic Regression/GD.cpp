@@ -122,6 +122,7 @@ int GD() {
             encoder.decode(plain, input);
             weights.push_back(input[0]);
         }
+        cout << weights.size() << ", " << cvtrain[l][0].size() << "\n";
         cout << "fold " << l + 1 << " 1st iteration AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%,";
         cout << "1st iteration accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
         cVec dataencscale = dataenc;
