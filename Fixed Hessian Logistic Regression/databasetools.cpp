@@ -86,56 +86,6 @@ void AllSum(Ciphertext encrypted, Ciphertext& allsum, int slot_count, shared_ptr
 	}
 }
 
-int ImportDataLR_eighth(dMat& Matrix, string filename) {
-	//open file
-	ifstream inFile;
-	inFile.open(filename);
-	//check file is open
-	if (!inFile) {
-		cout << "unable to open file";
-		return 0;
-	}
-
-	string line;
-	char split_char = '\t';
-	int ncolumns;
-	//process first row, moving class to the front and extracting number of columns
-	if (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		ncolumns = record.size();
-		vector<double> entry1;
-		//divide first entry by eight, preprocessing
-		entry1.push_back((stod(record[ncolumns - 1]) * 2 - 1) / 8);
-		//preprocessing for logistic regression
-		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
-		//add to matrix
-		Matrix.push_back(entry1);
-	}
-	else {
-		cout << "could not read file" << exit;
-	}
-	//process rest of the data
-	while (getline(inFile, line)) {
-		istringstream split(line);
-		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
-		//record should have the same number of features
-		if (record.size() != ncolumns) {
-			cout << "database dimension error" << exit;
-		}
-		//define a new entry
-		vector<double> entryi;
-		//dividing by 8 again
-		entryi.push_back((stod(record[ncolumns - 1]) * 2 - 1) / 8);
-		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
-		//add it to the matrix
-		Matrix.push_back(entryi);
-	}
-	return 0;
-
-}
 
 int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, char split_char) {
 	//This function imports data from a .txt file with the following adjustments: changes classification
@@ -155,7 +105,7 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 	}
 
 	string line;
-	int ncolumns,j;
+	int ncolumns, j;
 	//process first row, moving class to the front and extracting number of columns
 	if (getline(inFile, line)) {
 		istringstream split(line);
@@ -163,13 +113,19 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		ncolumns = record.size();
 		//if the classification is at the beginning, set j = 0. Otherwise, set j= ncolumns-1
-		j= first ? 0:(ncolumns-1);
+		j = first ? 0 : (ncolumns - 1);
 
 		vector<double> entry1;
 		//change classification from {0,1} to {-1,1}, and divide entry by divisor
-		entry1.push_back((stod(record[j]) * 2 - 1)/(1.*divisor));
+		entry1.push_back((stod(record[j]) * 2 - 1) / (1. * divisor));
 		//preprocessing for logistic regression
-		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
+		if (first) {
+			for (int i = 1; i < ncolumns; i++) entry1.push_back(stod(record[i]) * entry1[0]);
+		}
+		else {
+			for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
+		}
+		
 		//add to matrix
 		Matrix.push_back(entry1);
 	}
@@ -182,13 +138,13 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		vector<string> record;
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		//record should have the same number of features
-		if (record.size() != ncolumns) {
+		if (record.size() != ncolumns + 3) {
 			cout << "database dimension error" << exit;
 		}
 		//define a new entry
 		vector<double> entryi;
 		entryi.push_back((stod(record[j]) * 2 - 1)/(1.*divisor));
-		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
+		for (int i = 0; i < ncolumns - 4; i++) entryi.push_back(stod(record[i]) * entryi[0]);
 		//add it to the matrix
 		Matrix.push_back(entryi);
 	}

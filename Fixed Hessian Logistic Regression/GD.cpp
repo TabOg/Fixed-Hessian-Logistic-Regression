@@ -117,8 +117,8 @@ int GD() {
             Beta.push_back(temp);
         }
         weights.clear();
-        for (int i = 0; i < nfeatures; i++) {
-            decryptor.decrypt(Beta[i], plain);
+        for (int k = 0; k < nfeatures; k++) {
+            decryptor.decrypt(Beta[k], plain);
             encoder.decode(plain, input);
             weights.push_back(input[0]);
         }
