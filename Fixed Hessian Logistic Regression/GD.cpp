@@ -274,6 +274,7 @@ int GD(bool ringdim) {
                     // Synchronise to beta and ctsum
                     std::lock_guard<std::mutex> lock(mutex);
                     // These should be implicit moves in C++17.
+                    beta.scale() = pow(2, 28);
                     Beta[j] = beta;
                     ctsum[j] = ctsum_j;
                 });
