@@ -7,7 +7,7 @@
 using namespace std;
 using namespace seal;
 
-int GD() {
+int GD(bool ringdim) {
     thread_pool::thread_pool tp(std::thread::hardware_concurrency());
     double accuracy = 0;
     double auc = 0;
@@ -165,7 +165,7 @@ int GD() {
             evaluator.multiply_inplace(innerprod, Beta[0]);
             evaluator.relinearize_inplace(innerprod, relin_keys);
             evaluator.rescale_to_next_inplace(innerprod);
-            std::vector<Ciphertext> mults(nfeatures-1);
+            std::vector<Ciphertext> mults(nfeatures - 1);
             for (int i = 1; i < nfeatures; i++) {
                 tp.push([&Beta, &mults, &mutex, &dataenc, i, &evaluator, &relin_keys] {
                     Ciphertext mult;

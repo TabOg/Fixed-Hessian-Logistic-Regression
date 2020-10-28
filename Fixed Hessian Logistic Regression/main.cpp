@@ -25,7 +25,9 @@ int main() {
     cout << "+----------------------------+----------------------------+" << endl;
     int selection = 0;
     string iternum;
+    string ringdim;
     bool invalid = true;
+    bool ringbool;
     do
     {
         cout << endl << "> Run example (1 ~ 5) or exit (0): ";
@@ -62,7 +64,20 @@ int main() {
         Plaintext_LR("edin.txt", stoi(iternum));
         break;
     case 2:
-        GD();
+        cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+        cin >> ringdim;
+        while (!is_number(ringdim)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+            cin >> ringdim;
+        }
+        while (!(stoi(ringdim) == 0 || stoi(ringdim) == 1)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+            cin >> ringdim;
+        }
+        ringbool = (stoi(ringdim) == 1);
+        GD(ringbool);
         break;
     case 3:
         Nesterov_GD();

@@ -11,7 +11,7 @@ int Fixed_Hessian_Chebyshev();
 int Fixed_Hessian_Taylor();
 int Fixed_Hessian_IDASH();
 int Nesterov_GD();
-int GD();
+int GD(bool ringdim);
 int Plaintext_LR(string filename, int iternum);
 
 
