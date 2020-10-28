@@ -1,0 +1,1 @@
+clang++ CMakeFiles/main.dir/databasetools.cpp.o CMakeFiles/main.dir/Fixed_Hessian.cpp.o CMakeFiles/main.dir/GD.cpp.o CMakeFiles/main.dir/iDASH2017.cpp.o CMakeFiles/main.dir/logregtools.cpp.o CMakeFiles/main.dir/main.cpp.o CMakeFiles/main.dir/NAG.cpp.o CMakeFiles/main.dir/plaintextLR.cpp.o -o main  /home/tabog/SEAL/lib/libseal-3.5.a -pthread 

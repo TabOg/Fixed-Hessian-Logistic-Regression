@@ -17,10 +17,10 @@ int GD() {
     CVrandomSampling(cvtrain, cvtest, Matrix);
     Matrix.clear();
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = 32768;
+    size_t poly_modulus_degree = 65536;
     vector<int> mod;
     mod.push_back(38);
-    for (int i = 0; i < 25; i++)mod.push_back(28);
+    for (int i = 0; i < 57; i++)mod.push_back(28);
     mod.push_back(38);
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
@@ -153,7 +153,7 @@ int GD() {
         Ciphertext mult, innerprod, square;
         double alpha;
         //iterations
-        for (int k = 2; k < 8; k++) 
+        for (int k = 2; k < 16; k++) 
         {
             alpha = 10 / (k + 1);
             encoder.encode(alpha * sc, scale, scaler);
