@@ -17,10 +17,10 @@ int GD(bool ringdim) {
     CVrandomSampling(cvtrain, cvtest, Matrix);
     Matrix.clear();
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = 65536;
+    size_t poly_modulus_degree = ringdim? 32768:65536;
     vector<int> mod;
     mod.push_back(38);
-    for (int i = 0; i < 57; i++)mod.push_back(28);
+    for (int i = 0; i < ringdim ? 25 : 57; i++)mod.push_back(28);
     mod.push_back(38);
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
@@ -153,7 +153,7 @@ int GD(bool ringdim) {
         Ciphertext mult, innerprod, square;
         double alpha;
         //iterations
-        for (int k = 2; k < 16; k++) 
+        for (int k = 2; k < ringdim ? 8 : 16; k++)
         {
             alpha = 10 / (k + 1);
             encoder.encode(alpha * sc, scale, scaler);
@@ -174,17 +174,17 @@ int GD(bool ringdim) {
                     evaluator.relinearize_inplace(mult, relin_keys);
                     evaluator.rescale_to_next_inplace(mult);
                     std::lock_guard<std::mutex> lock(mutex);
-                    mults[i-1] = mult;
-                });
+                    mults[i - 1] = mult;
+                    });
             }
 
             tp.wait_work();
 
-            for(const auto& mult : mults) 
+            for (const auto& mult : mults)
             {
                 evaluator.add_inplace(innerprod, mult);
             }
-            
+
             //time to evaluate the polynomial!
             square = innerprod;
             evaluator.square_inplace(square);
@@ -198,34 +198,34 @@ int GD(bool ringdim) {
             // Note: this loop is done in parallel: we don't have any dependencies, so we can use a temporary ciphertext
             // (called mult) in each thread.
             for (int j = 0; j < nfeatures; j++) {
-                    tp.push([&evaluator, &mutex, &dataencscale, j, innerprod, &relin_keys, &square, &mults] {
-                        Ciphertext mult;
-                        // Writes to first
-                        evaluator.mod_switch_to_inplace(dataencscale[j], innerprod.parms_id());
-                        // Writes to last
-                        evaluator.multiply(innerprod, dataencscale[j], mult);
-                        // Writes to first
-                        evaluator.relinearize_inplace(mult, relin_keys);
-                        // Writes to first
-                        evaluator.rescale_to_next_inplace(mult);
-                        /*cout << context->get_context_data(square.parms_id())->chain_index() << "\n";
-                        cout << context->get_context_data(squarea4.parms_id())->chain_index() << "\n";*/
-                        evaluator.multiply_inplace(mult, square);
-                        evaluator.relinearize_inplace(mult, relin_keys);
-                        evaluator.rescale_to_next_inplace(mult);
+                tp.push([&evaluator, &mutex, &dataencscale, j, innerprod, &relin_keys, &square, &mults] {
+                    Ciphertext mult;
+                    // Writes to first
+                    evaluator.mod_switch_to_inplace(dataencscale[j], innerprod.parms_id());
+                    // Writes to last
+                    evaluator.multiply(innerprod, dataencscale[j], mult);
+                    // Writes to first
+                    evaluator.relinearize_inplace(mult, relin_keys);
+                    // Writes to first
+                    evaluator.rescale_to_next_inplace(mult);
+                    /*cout << context->get_context_data(square.parms_id())->chain_index() << "\n";
+                    cout << context->get_context_data(squarea4.parms_id())->chain_index() << "\n";*/
+                    evaluator.multiply_inplace(mult, square);
+                    evaluator.relinearize_inplace(mult, relin_keys);
+                    evaluator.rescale_to_next_inplace(mult);
 
-                        std::lock_guard<std::mutex> lock(mutex);
-                        mults[j] = mult;
-                });
+                    std::lock_guard<std::mutex> lock(mutex);
+                    mults[j] = mult;
+                    });
             }
-            
+
             tp.wait_work();
-            
+
             // This loop has a dependency on scaler (mod_switch_to_implace writes to it), and 
             // I couldn't see if there were any interactions (i.e if scaler is recycled across iterations: it shouldn't but 
             // you never know.)
             // So, for safety we can only do this bit in serial
-            for(auto& mult : mults) {
+            for (auto& mult : mults) {
                 evaluator.mod_switch_to_inplace(scaler, mult.parms_id());
                 evaluator.multiply_plain_inplace(mult, scaler);
                 evaluator.rescale_to_next_inplace(mult);
@@ -233,7 +233,7 @@ int GD(bool ringdim) {
 
             // We do this loop in parallel too: again we use a mutex to control
             // writes to mults
-            for(int j = 0; j < nfeatures;j++) {
+            for (int j = 0; j < nfeatures; j++) {
                 tp.push([&mults, &mutex, &evaluator, j, &gal_keys, slot_count]() {
                     Ciphertext mult = mults[j];
                     for (int i = 0; i < log2(slot_count); i++) {
@@ -243,16 +243,16 @@ int GD(bool ringdim) {
                     }
                     std::lock_guard<std::mutex> lock(mutex);
                     mults[j] = mult;
-                });
+                    });
             }
 
             // Wait for this to finish before continuing
             tp.wait_work();
 
-                
-            for(unsigned int j = 0; j < nfeatures; j++) {
+
+            for (unsigned int j = 0; j < nfeatures; j++) {
                 tp.push([j, &Beta, &ctsum, &mults, &alphap, &evaluator, &mutex]() {
-                                
+
                     Ciphertext temp;
                     auto mult = mults[j];
                     auto beta = Beta[j];
@@ -268,7 +268,7 @@ int GD(bool ringdim) {
                     //update weights vector
                     mult.scale() = beta.scale();
                     // Writes to both Betas, but mult is unique per iteration
-                
+
                     evaluator.mod_switch_to_inplace(beta, mult.parms_id());
                     evaluator.add_inplace(beta, mult);
                     // Synchronise to beta and ctsum
@@ -277,7 +277,7 @@ int GD(bool ringdim) {
                     beta.scale() = pow(2, 28);
                     Beta[j] = beta;
                     ctsum[j] = ctsum_j;
-                });
+                    });
             }
 
             tp.wait_work();
