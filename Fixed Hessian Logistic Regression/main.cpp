@@ -80,11 +80,38 @@ int main() {
         GD(ringbool);
         break;
     case 3:
-        Nesterov_GD();
+        cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+        cin >> ringdim;
+        while (!is_number(ringdim)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+            cin >> ringdim;
+        }
+        while (!(stoi(ringdim) == 0 || stoi(ringdim) == 1)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+            cin >> ringdim;
+        }
+        ringbool = (stoi(ringdim) == 1);
+
+        Nesterov_GD(ringbool);
         break;
 
     case 4:
-        Fixed_Hessian_Chebyshev();
+        cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+        cin >> ringdim;
+        while (!is_number(ringdim)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+            cin >> ringdim;
+        }
+        while (!(stoi(ringdim) == 0 || stoi(ringdim) == 1)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
+            cin >> ringdim;
+        }
+        ringbool = (stoi(ringdim) == 1);
+        Fixed_Hessian_Chebyshev(ringbool);
         break;
 
     case 5:

@@ -7,20 +7,23 @@
 using namespace std;
 using namespace seal;
 
-int Fixed_Hessian_Chebyshev() {
+int Fixed_Hessian_Chebyshev(bool ringdim) {
     cout << "Running Fixed Hessian with Chebyshev sigmoid approximation:\n";
     dMat Matrix;
-    ImportDataLR(Matrix, "edin.txt",false,2);
+    ImportDataLR(Matrix, "edin.txt", false, 2);
 
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = 32768;
+    size_t poly_modulus_degree = ringdim ? 32768 : 65536;
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
-
-    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, { 50,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,40,50 }));
+    vector<int> mod;
+    mod.push_back(50);
+    for (int i = 0; i < ringdim ? 17 : 41; i++)mod.push_back(40);
+    mod.push_back(50);
+    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
-    auto context = SEALContext::Create(parms);
+    auto context = SEALContext::Create(parms, true, sec_level_type::none);
     KeyGenerator keygen(context);
     PublicKey public_key = keygen.public_key();
     SecretKey secret_key = keygen.secret_key();
@@ -196,7 +199,7 @@ int Fixed_Hessian_Chebyshev() {
             evaluator.rescale_to_next_inplace(dataencscale[i]);
         }
         weights.clear();
-       
+
         for (int i = 0; i < nfeatures; i++) {
             decryptor.decrypt(Beta[i], plain);
             encoder.decode(plain, input);
@@ -208,7 +211,7 @@ int Fixed_Hessian_Chebyshev() {
         cout << "1st iteration AUC: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";
         //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i](AllSum[i] -5/8sum Beta.z(j)/2.z(ji)/2
 
-        for (int k = 2; k < 5; k++) {
+        for (int k = 2; k < ringdim ? 5 : 12; k++) {
 
             //calculate the inner product: this is the only calculation where we can't go feature by feature
             evaluator.mod_switch_to_inplace(dataenc[0], Beta[0].parms_id());
@@ -266,7 +269,7 @@ int Fixed_Hessian_Chebyshev() {
                 decryptor.decrypt(Beta[i], plain);
                 encoder.decode(plain, input);
                 weights.push_back(input[0]);
-                
+
             }
             cout << "iteration " << k << " accuracy is: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
             cout << "AUC is: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";

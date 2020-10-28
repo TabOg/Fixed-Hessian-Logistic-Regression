@@ -6,18 +6,22 @@
 using namespace std;
 using namespace seal;
 
-int Nesterov_GD() {
+int Nesterov_GD(bool ringdim) {
     cout << "Running Nesterov Accelerated Gradient Descent:\n";
 
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = 32768;
+    size_t poly_modulus_degree = ringdim ? 32768 : 65536;
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
+    vector<int> mod;
+    mod.push_back(40);
+    for (int i = 0; i < ringdim ? 25 : 55; i++)mod.push_back(30);
+    mod.push_back(40);
 
-    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, { 40,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,40 }));
+    parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
-    auto context = SEALContext::Create(parms);
+    auto context = SEALContext::Create(parms,true,sec_level_type::none);
     KeyGenerator keygen(context);
     PublicKey public_key = keygen.public_key();
     SecretKey secret_key = keygen.secret_key();
@@ -204,7 +208,7 @@ int Nesterov_GD() {
         weightsmat.clear();
         weights.clear();
         //beginning of an iteration:
-        for (int i = 2; i < 6; i++) {
+        for (int i = 2; i < ringdim ? 6 : 11; i++) {
 
             //encode learning rate alpha
             alpha = 10 / (1.0 * i + 1);
@@ -431,7 +435,7 @@ int Nesterov_GD() {
         }
         auto ending = chrono::steady_clock::now();
         auto total = ending - begin;
-        cout << "fold "<<l+1<<" training done. Time =" << chrono::duration <double, milli>(total).count() / 1000.0 << "s. \n";
+        cout << "fold " << l + 1 << " training done. Time =" << chrono::duration <double, milli>(total).count() / 1000.0 << "s. \n";
 
 
         decryptor.decrypt(v1, p1);
