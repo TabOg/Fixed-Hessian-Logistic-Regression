@@ -10,16 +10,16 @@ int Nesterov_GD(bool ringdim) {
     cout << "Running Nesterov Accelerated Gradient Descent:\n";
 
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = ringdim ? 32768 : 65536;
-
+    size_t poly_modulus_degree = (ringdim) ? 32768 : 65536;
+    int x = (ringdim)? 25:55; 	
     parms.set_poly_modulus_degree(poly_modulus_degree);
     vector<int> mod;
     mod.push_back(40);
-    for (int i = 0; i < ringdim ? 25 : 55; i++)mod.push_back(30);
+    for (int i = 0; i < x; i++)mod.push_back(30);
     mod.push_back(40);
 
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
-    cout << "Generating context...";
+    cout << "Generating context..."<<endl;
     auto start = chrono::steady_clock::now();
     auto context = SEALContext::Create(parms,true,sec_level_type::none);
     KeyGenerator keygen(context);
