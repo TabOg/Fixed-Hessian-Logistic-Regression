@@ -17,11 +17,13 @@ int GD(bool ringdim) {
     CVrandomSampling(cvtrain, cvtest, Matrix);
     Matrix.clear();
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = ringdim? 32768:65536;
+    size_t poly_modulus_degree = ringdim ? 32768 : 65536;
     vector<int> mod;
+    int x = ringdim ? 25 : 57;
     mod.push_back(38);
-    for (int i = 0; i < ringdim ? 25 : 57; i++)mod.push_back(28);
+    for (int i = 0; i < x; i++)mod.push_back(28);
     mod.push_back(38);
+    x = ringdim ? 8 : 16;
     parms.set_poly_modulus_degree(poly_modulus_degree);
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context..."<<endl;
@@ -153,7 +155,7 @@ int GD(bool ringdim) {
         Ciphertext mult, innerprod, square;
         double alpha;
         //iterations
-        for (int k = 2; k < ringdim ? 8 : 16; k++)
+        for (int k = 2; k < x; k++)
         {
             alpha = 10 / (k + 1);
             encoder.encode(alpha * sc, scale, scaler);

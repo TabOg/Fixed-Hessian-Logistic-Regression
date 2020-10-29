@@ -17,9 +17,11 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
     vector<int> mod;
+    int x = ringdim ? 17 : 41;
     mod.push_back(50);
-    for (int i = 0; i < ringdim ? 17 : 41; i++)mod.push_back(40);
+    for (int i = 0; i < x; i++)mod.push_back(40);
     mod.push_back(50);
+    ringdim ? 5 : 12;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
@@ -211,7 +213,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         cout << "1st iteration AUC: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";
         //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i](AllSum[i] -5/8sum Beta.z(j)/2.z(ji)/2
 
-        for (int k = 2; k < ringdim ? 5 : 12; k++) {
+        for (int k = 2; k < x; k++) {
 
             //calculate the inner product: this is the only calculation where we can't go feature by feature
             evaluator.mod_switch_to_inplace(dataenc[0], Beta[0].parms_id());
