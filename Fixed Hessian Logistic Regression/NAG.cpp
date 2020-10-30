@@ -340,15 +340,12 @@ int Nesterov_GD(bool ringdim) {
 
 
         decryptor.decrypt(v1, p1);
-        /*decryptor.decrypt(v2, p2);*/
         encoder.decode(p1, w1);
-        encoder.decode(p2, w2);
 
         weights.clear();
 
         for (int i = 0; i < nrow; i++) {
-            for (int j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
-            for (int j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
+            for (int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
             weightsmat.push_back(weights);
             weights.clear();
         }
