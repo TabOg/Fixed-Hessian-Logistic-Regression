@@ -11,21 +11,13 @@ int Nesterov_GD(bool ringdim) {
 
     EncryptionParameters parms(scheme_type::CKKS);
     size_t poly_modulus_degree = (ringdim) ? 32768 : 65536;
-    int x = ringdim ? 7 : 13;
+    int x = ringdim ? 25 : 55;
     parms.set_poly_modulus_degree(poly_modulus_degree);
     vector<int> mod;
     mod.push_back(40);
-    mod.push_back(30);
-    for (int i = 2; i < x; i++) {
-        mod.push_back(30);
-        mod.push_back(20);
-        mod.push_back(30);
-        mod.push_back(30);
-        mod.push_back(20);
-        mod.push_back(20);
-    }
+    for (int i = 0; i < x; i++)mod.push_back(30);
     mod.push_back(40);
-    
+    x = ringdim ? 6 : 11;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context..."<<endl;
     auto start = chrono::steady_clock::now();
@@ -57,7 +49,7 @@ int Nesterov_GD(bool ringdim) {
     Matrix.clear();
 
     double scale = pow(2.0, 30);
-    double lowscale = pow(2.0, 20);
+    double lowscale = pow(2.0, 30);
     int n, nfeatures;
     Plaintext data1, data2;
     dVec train1,train2;
