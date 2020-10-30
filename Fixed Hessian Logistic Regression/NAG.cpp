@@ -197,53 +197,31 @@ int Nesterov_GD(bool ringdim) {
             evaluator.mod_switch_to_inplace(datatemp, weighttemp1.parms_id());
             evaluator.multiply_inplace(weighttemp1, datatemp);
             evaluator.relinearize_inplace(weighttemp1, relin_keys);
-            evaluator.rescale_to_next_inplace(weighttemp1);
-
-            //now for the last 2 columns
-            /*weighttemp2 = v2;*/
-            datatemp = dataenc2;
-
-            evaluator.mod_switch_to_inplace(datatemp, weighttemp2.parms_id());
-            evaluator.multiply_inplace(weighttemp2, datatemp);
-            evaluator.relinearize_inplace(weighttemp2, relin_keys);
-            evaluator.rescale_to_next_inplace(weighttemp2);
+            evaluator.rescale_to_next_inplace(weighttemp1);//high rescale
 
             //allsum to create inner products
 
             allsum1 = weighttemp1;
-            allsum2 = weighttemp2;
 
-            //all sum on the first vector
+            //all sum on the database ROWS
 
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < log2(16); i++) {
                 temp = allsum1;
 
                 evaluator.rotate_vector_inplace(temp, pow(2, i), gal_keys);
-
                 evaluator.add_inplace(allsum1, temp);
             }
-            //all sum on the second
-
-            temp = allsum2;
-
-            evaluator.rotate_vector_inplace(temp, 1, gal_keys);
-
-            evaluator.add_inplace(allsum2, temp);
-
-            //adding together to get inner products in the first column
-            evaluator.add_inplace(allsum1, allsum2);
-
+           
             //multiply by C, first changing C's parameters 
             Ctemp = Cp;
 
             evaluator.mod_switch_to_inplace(Ctemp, allsum1.parms_id());
             evaluator.multiply_plain_inplace(allsum1, Ctemp);
+            evaluator.rescale_to_next_inplace(allsum1);//low rescale?
 
-            evaluator.rescale_to_next_inplace(allsum1);
+            //replicating the inner product across the columns of a 16 x nrow matrix
 
-            //replicating the inner product across the columns of an 8 x nrow matrix
-
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < log2(16); i++) {
                 temp = allsum1;
                 evaluator.rotate_vector(temp, -pow(2, i), gal_keys, temp);
                 evaluator.add_inplace(allsum1, temp);
@@ -254,7 +232,7 @@ int Nesterov_GD(bool ringdim) {
             allsum2 = allsum1;
             evaluator.square_inplace(allsum2);
             evaluator.relinearize_inplace(allsum2, relin_keys);
-            evaluator.rescale_to_next_inplace(allsum2);
+            evaluator.rescale_to_next_inplace(allsum2);//high rescale
 
             //modify scale, mod switch a1/a3, and add:
             coeff4temp = coeff4;
@@ -264,125 +242,80 @@ int Nesterov_GD(bool ringdim) {
 
             //switch down (a copy of) 2a3zi/8, multiply by wi:
             poly1temp = poly1;
-
             evaluator.mod_switch_to_inplace(poly1temp, allsum1.parms_id());
             evaluator.multiply_inplace(poly1temp, allsum1);
             evaluator.relinearize_inplace(poly1temp, relin_keys);
-            evaluator.rescale_to_next_inplace(poly1temp);
-            //repeat for second half of matrix;
-            poly2temp = poly2;
-
-            evaluator.mod_switch_to_inplace(poly2temp, allsum1.parms_id());
-            evaluator.multiply_inplace(poly2temp, allsum1);
-            evaluator.relinearize_inplace(poly2temp, relin_keys);
-            evaluator.rescale_to_next_inplace(poly2temp);
+            evaluator.rescale_to_next_inplace(poly1temp);//high rescale
 
             //complete polynomial evaluation of (2g(x)-1)zij/8:
 
             evaluator.multiply_inplace(poly1temp, allsum2);
-            evaluator.relinearize_inplace(poly1temp, relin_keys);
+            evaluator.relinearize_inplace(poly1temp, relin_keys);   
             evaluator.rescale_to_next_inplace(poly1temp);
-            evaluator.multiply_inplace(poly2temp, allsum2);
-            evaluator.relinearize_inplace(poly2temp, relin_keys);
-            evaluator.rescale_to_next_inplace(poly2temp);
 
             //multiply ctsum1 and 2 by the learning rate
             allsum1 = ctsum1;
 
             evaluator.mod_switch_to_next_inplace(alphap);
             evaluator.multiply_plain_inplace(allsum1, alphap);
-            evaluator.rescale_to_next_inplace(allsum1);
-            allsum2 = ctsum2;
-            evaluator.multiply_plain_inplace(allsum2, alphap);
-            evaluator.rescale_to_next_inplace(allsum2);
+            evaluator.rescale_to_next_inplace(allsum1);//low rescale?
 
             //time to allsum the columns.
             for (int i = 0; i < log2(nrow); i++) {
                 temp = poly1temp;
-                evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
+                evaluator.rotate_vector(temp, 16 * pow(2, i), gal_keys, temp);
                 evaluator.add_inplace(poly1temp, temp);
             }
 
-            for (int i = 0; i < log2(nrow); i++) {
-                temp = poly2temp;
-                evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
-                evaluator.add_inplace(poly2temp, temp);
-            }
-
-            //multiply polytemp 1 and 2 by 4alpha/n:
+            //multiply polytemp1 by 4alpha/n:
             alpha = alpha * sc;
             encoder.encode(alpha, scale, alphap);
 
             evaluator.mod_switch_to_inplace(alphap, poly1temp.parms_id());
             evaluator.multiply_plain_inplace(poly1temp, alphap);
-            evaluator.rescale_to_next_inplace(poly1temp);
-            evaluator.multiply_plain_inplace(poly2temp, alphap);
-            evaluator.rescale_to_next_inplace(poly2temp);
+            evaluator.rescale_to_next_inplace(poly1temp);//low rescale?
 
             //finally complete polynomial evaluation:
 
             allsum1.scale() = poly1temp.scale();
-            allsum2.scale() = poly2temp.scale();
             evaluator.mod_switch_to_inplace(allsum1, poly1temp.parms_id());
-            evaluator.mod_switch_to_inplace(allsum2, poly2temp.parms_id());
             evaluator.add_inplace(poly1temp, allsum1);
-            evaluator.add_inplace(poly2temp, allsum2);
 
-            weighttemp1 = Beta1;/*
-            weighttemp2 = Beta2;*/
-            Beta1 = v1;/*
-            Beta2 = v2;*/
+            weighttemp1 = Beta1;
+            Beta1 = v1;
 
-            //switch v1 and v2 down and add:
+            //switch v1 down and add:
             Beta1.scale() = poly1temp.scale();
-
-            /*Beta2.scale() = poly2temp.scale();*/
-
             evaluator.mod_switch_to_inplace(Beta1, poly1temp.parms_id());
-            /*evaluator.mod_switch_to_inplace(Beta2, poly2temp.parms_id());*/
-
             evaluator.add_inplace(Beta1, poly1temp);
-            /*evaluator.add_inplace(Beta2, poly2temp);*/
 
             //first line of update done. Now for second
             //start by switching down the learning rates 1 - gamma and gamma       
 
             evaluator.mod_switch_to(mgammap, Beta1.parms_id(), mgammap);
-
             evaluator.mod_switch_to(gammap, weighttemp1.parms_id(), gammap);
 
             //multiply by 1 - gamma and gamma
             v1 = Beta1;
-            /*v2 = Beta2;*/
             evaluator.multiply_plain_inplace(v1, mgammap);
             evaluator.rescale_to_next_inplace(v1);
-            /*evaluator.multiply_plain_inplace(v2, mgammap);*/
-            /*evaluator.rescale_to_next_inplace(v2);*/
             evaluator.multiply_plain_inplace(weighttemp1, gammap);
             evaluator.rescale_to_next_inplace(weighttemp1);
-            evaluator.multiply_plain_inplace(weighttemp2, gammap);
-            evaluator.rescale_to_next_inplace(weighttemp2);
 
             //switch down the "old" weights, so they can be added.
             weighttemp1.scale() = v1.scale();
-            /*weighttemp2.scale() = v2.scale();*/
             evaluator.mod_switch_to(weighttemp1, v1.parms_id(), weighttemp1);
-            /*evaluator.mod_switch_to(weighttemp2, v2.parms_id(), weighttemp2);*/
 
-            //now update the vectors v1 and v2:
+            //now update the vector v1:
             evaluator.add_inplace(v1, weighttemp1);
-            /*evaluator.add_inplace(v2, weighttemp2);*/
 
 
             decryptor.decrypt(v1, p1);
-            /*decryptor.decrypt(v2, p2);*/
             encoder.decode(p1, w1);
-            encoder.decode(p2, w2);
             weights.clear();
 
             for (int i = 0; i < nrow; i++) {
-                for (int j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
-                for (int j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
+                for (int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
                 weightsmat.push_back(weights);
                 weights.clear();
             }
