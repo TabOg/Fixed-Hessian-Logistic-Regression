@@ -161,7 +161,7 @@ int Nesterov_GD(bool ringdim) {
         weights.clear();
 
         for (int i = 0; i < nrow; i++) {
-            for (int j = 0; j < 16; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
+            for (int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
             weightsmat.push_back(weights);
             weights.clear();
         }
@@ -170,7 +170,7 @@ int Nesterov_GD(bool ringdim) {
             for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
         }
         for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
-
+        cout << weights.size() << "," << cvtrain[l][0].size();
         cout << "1st iteration AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
         cout << "1st iteration accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
 
