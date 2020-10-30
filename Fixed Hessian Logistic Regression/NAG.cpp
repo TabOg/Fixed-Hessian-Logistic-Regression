@@ -11,13 +11,21 @@ int Nesterov_GD(bool ringdim) {
 
     EncryptionParameters parms(scheme_type::CKKS);
     size_t poly_modulus_degree = (ringdim) ? 32768 : 65536;
-    int x = (ringdim) ? 25 : 55;
+    int x = ringdim ? 7 : 13;
     parms.set_poly_modulus_degree(poly_modulus_degree);
     vector<int> mod;
     mod.push_back(40);
-    for (int i = 0; i < x; i++)mod.push_back(30);
+    mod.push_back(30);
+    for (int i = 2; i < x; i++) {
+        mod.push_back(30);
+        mod.push_back(20);
+        mod.push_back(30);
+        mod.push_back(30);
+        mod.push_back(20);
+        mod.push_back(20);
+    }
     mod.push_back(40);
-    x = ringdim ? 6 : 11;
+    
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context..."<<endl;
     auto start = chrono::steady_clock::now();
@@ -55,7 +63,6 @@ int Nesterov_GD(bool ringdim) {
     dVec train1,train2;
     Ciphertext dataenc1, dataenc2;
     Plaintext Cp;
-    double a0 = 0.5;
     double a1 = -1.20096;
     double a3 = 0.81562;
     double a4 = a1 / a3;
@@ -65,23 +72,22 @@ int Nesterov_GD(bool ringdim) {
     Plaintext gammap, mgammap;
     cout << "encoding polynomial coefficients...";
     Plaintext coeff0, coeff1, coeff3, coeff4, coeff4temp, scaler;
-    encoder.encode(a0, scale, coeff0);
     encoder.encode(a1, scale, coeff1);
     encoder.encode(2 * a3, scale, coeff3);
     encoder.encode(a4, scale, coeff4);
 
     cout << "done \n";
 
-    Ciphertext poly1, poly2;
-    Ciphertext temp, ctsum1, ctsum2;
+    Ciphertext poly1;
+    Ciphertext temp, ctsum1;
 
     double gamma, mgamma;
 
     dMat weightsmat;
-    Plaintext p1, p2;
-    dVec w1, w2;
+    Plaintext p1;
+    dVec w1;
     Plaintext alphap, Ctemp;
-    Ciphertext allsum1, allsum2, poly1temp, poly2temp, weighttemp1, weighttemp2, datatemp;
+    Ciphertext allsum1, allsum2, poly1temp, weighttemp1, datatemp;
     double alpha,accuracy,auc;
     accuracy = 0;
     auc = 0;
@@ -110,8 +116,8 @@ int Nesterov_GD(bool ringdim) {
         //creating the matrix C -- start with the message version
         dVec Cm(n * 16.0, 0);
         for (int i = 0; i < n; i++)Cm[16.0 * i] += 1;
-        //now plaintext version
-        encoder.encode(Cm, scale, Cp);
+        //now plaintext version: this is a low recision multiplier
+        encoder.encode(Cm, lowscale, Cp);
         cout << "done \n";
         start = chrono::steady_clock::now();
         cout << "Encrypting...";
@@ -181,12 +187,12 @@ int Nesterov_GD(bool ringdim) {
             //encode learning rate alpha
             alpha = 10 / (1.0 * i + 1);
             encoder.encode(alpha, scale, alphap);
-            //calculate and encode the weights gamma and 1 - gamma
+            //calculate and encode the weights gamma and 1 - gamma at low precision
             T = (1. + sqrt(1. + 4 * t * t)) / 2.;
             gamma = -(t - 1) / T;
             mgamma = 1 - gamma;
-            encoder.encode(gamma, scale, gammap);
-            encoder.encode(mgamma, scale, mgammap);
+            encoder.encode(gamma, lowscale, gammap);
+            encoder.encode(mgamma, lowscale, mgammap);
 
             t = T;
 
@@ -197,27 +203,23 @@ int Nesterov_GD(bool ringdim) {
             evaluator.mod_switch_to_inplace(datatemp, weighttemp1.parms_id());
             evaluator.multiply_inplace(weighttemp1, datatemp);
             evaluator.relinearize_inplace(weighttemp1, relin_keys);
-            evaluator.rescale_to_next_inplace(weighttemp1);//high rescale
+            evaluator.rescale_to_next_inplace(weighttemp1);//high prec rescale
 
-            //allsum to create inner products
-
+            
             allsum1 = weighttemp1;
-
-            //all sum on the database ROWS
+            //all sum on the database ROWS to create inner products
 
             for (int i = 0; i < log2(16); i++) {
                 temp = allsum1;
-
                 evaluator.rotate_vector_inplace(temp, pow(2, i), gal_keys);
                 evaluator.add_inplace(allsum1, temp);
             }
            
             //multiply by C, first changing C's parameters 
             Ctemp = Cp;
-
             evaluator.mod_switch_to_inplace(Ctemp, allsum1.parms_id());
             evaluator.multiply_plain_inplace(allsum1, Ctemp);
-            evaluator.rescale_to_next_inplace(allsum1);//low rescale?
+            evaluator.rescale_to_next_inplace(allsum1);//low rescale
 
             //replicating the inner product across the columns of a 16 x nrow matrix
 
@@ -251,14 +253,14 @@ int Nesterov_GD(bool ringdim) {
 
             evaluator.multiply_inplace(poly1temp, allsum2);
             evaluator.relinearize_inplace(poly1temp, relin_keys);   
-            evaluator.rescale_to_next_inplace(poly1temp);
+            evaluator.rescale_to_next_inplace(poly1temp);//high rescale
 
             //multiply ctsum1 and 2 by the learning rate
             allsum1 = ctsum1;
 
             evaluator.mod_switch_to_next_inplace(alphap);
             evaluator.multiply_plain_inplace(allsum1, alphap);
-            evaluator.rescale_to_next_inplace(allsum1);//low rescale?
+            evaluator.rescale_to_next_inplace(allsum1);//high rescale as many levels above beta
 
             //time to allsum the columns.
             for (int i = 0; i < log2(nrow); i++) {
@@ -267,13 +269,13 @@ int Nesterov_GD(bool ringdim) {
                 evaluator.add_inplace(poly1temp, temp);
             }
 
-            //multiply polytemp1 by 4alpha/n:
+            //multiply polytemp1 by 4alpha/n at low precision:
             alpha = alpha * sc;
-            encoder.encode(alpha, scale, alphap);
+            encoder.encode(alpha, lowscale, alphap);
 
             evaluator.mod_switch_to_inplace(alphap, poly1temp.parms_id());
             evaluator.multiply_plain_inplace(poly1temp, alphap);
-            evaluator.rescale_to_next_inplace(poly1temp);//low rescale?
+            evaluator.rescale_to_next_inplace(poly1temp);//low rescale
 
             //finally complete polynomial evaluation:
 
@@ -290,22 +292,23 @@ int Nesterov_GD(bool ringdim) {
             evaluator.add_inplace(Beta1, poly1temp);
 
             //first line of update done. Now for second
-            //start by switching down the learning rates 1 - gamma and gamma       
+            //start by switching down the learning rate 1 - gamma      
 
             evaluator.mod_switch_to(mgammap, Beta1.parms_id(), mgammap);
-            evaluator.mod_switch_to(gammap, weighttemp1.parms_id(), gammap);
 
+            //now switch down Beta(k-1) to the level of Beta(k) so we can get a 20 bit rescale
+            evaluator.mod_switch_to(weighttemp1, Beta1.parms_id(), weighttemp1);
+            //adjust gammap
+            evaluator.mod_switch_to(gammap, weighttemp1.parms_id(), gammap);
             //multiply by 1 - gamma and gamma
             v1 = Beta1;
             evaluator.multiply_plain_inplace(v1, mgammap);
-            evaluator.rescale_to_next_inplace(v1);
+            evaluator.rescale_to_next_inplace(v1);//low rescale
             evaluator.multiply_plain_inplace(weighttemp1, gammap);
-            evaluator.rescale_to_next_inplace(weighttemp1);
+            evaluator.rescale_to_next_inplace(weighttemp1);//low rescale
 
-            //switch down the "old" weights, so they can be added.
             weighttemp1.scale() = v1.scale();
-            evaluator.mod_switch_to(weighttemp1, v1.parms_id(), weighttemp1);
-
+            
             //now update the vector v1:
             evaluator.add_inplace(v1, weighttemp1);
 
