@@ -3,6 +3,7 @@
 #include "databasetools.h"
 #include "logregtools.h"
 #include "algorithm"
+#include "threadpool.hpp"
 
 using namespace std;
 using namespace seal;
@@ -11,6 +12,8 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
     cout << "Running Fixed Hessian with Chebyshev sigmoid approximation:\n";
     dMat Matrix;
     ImportDataLR(Matrix, "edin.txt", false, 2);
+
+    thread_pool::thread_pool tp(10);
 
     EncryptionParameters parms(scheme_type::CKKS);
     size_t poly_modulus_degree = ringdim ? 32768 : 65536;
@@ -92,29 +95,43 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             encryptor.encrypt(dataplain[i], ctemp);
             dataenc.push_back(ctemp);
         }
+
         end = chrono::steady_clock::now();
         diff = end - start;
         cout << "Encrypting time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
         cout << "Creating H...";
         start = chrono::steady_clock::now();
-        //creating H: first add all ciphertexts
+        
+	//creating H: first add all ciphertexts
         H.clear();
         for (int i = 1; i < nfeatures; i++)evaluator.add_inplace(ctemp, dataenc[1. * nfeatures - 1 - i]);
         H = dataenc;
         //now create H(i,i)
+	// We do this in parallel, treating each H[i] independently.
+	std::mutex H_mutex;
         for (int i = 0; i < nfeatures; i++) {
-            evaluator.multiply_inplace(H[i], ctemp);
-            evaluator.relinearize_inplace(H[i], relin_keys);
-            evaluator.rescale_to_next_inplace(H[i]);
-            //allsum H[i]
-            allsumtemp = H[i];
-            for (int j = 0; j < log2(slot_count); j++) {
-                H[i] = allsumtemp;
-                evaluator.rotate_vector(H[i], pow(2, j), gal_keys, H[i]);
-                evaluator.add_inplace(allsumtemp, H[i]);
-            }
-            H[i] = allsumtemp;
-        }
+	    tp.push([&H,i, &H_mutex, &evaluator, &ctemp, &relin_keys, &gal_keys, slot_count]() {
+		
+		auto local_temp = H[i];
+	    
+            	evaluator.multiply_inplace(local_temp, ctemp);
+            	evaluator.relinearize_inplace(local_temp, relin_keys);
+            	evaluator.rescale_to_next_inplace(local_temp);
+            	//allsum H[i]
+            	
+		Ciphertext allsumtemp = H[i];
+            	for (int j = 0; j < log2(slot_count); j++) {
+                	local_temp = allsumtemp;
+                	evaluator.rotate_vector(local_temp, pow(2, j), gal_keys, local_temp);
+                	evaluator.add_inplace(allsumtemp, local_temp);
+            	}
+		std::lock_guard<std::mutex> lock(H_mutex);
+            	H[i] = allsumtemp;
+          });
+	}
+
+	// Wait for the previous loop to finish
+	tp.wait_work();
         //time to calculate 1/H(i,i) -- first we need our starting point, T1 + T2D
         cout << "Calculating 1/H(i)...";
         t1 = T1(0.25 * (nfeatures * n));
