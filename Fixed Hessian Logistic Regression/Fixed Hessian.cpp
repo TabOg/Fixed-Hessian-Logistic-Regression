@@ -20,11 +20,11 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
     vector<int> mod;
-    int x = ringdim ? 17 : 41;
+    int x = ringdim ? 18 : 39;
     mod.push_back(50);
     for (int i = 0; i < x; i++)mod.push_back(40);
     mod.push_back(50);
-    x = ringdim ? 5 : 12;
+    x = ringdim ? 5 : 11;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
@@ -249,26 +249,30 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         cout << "1st iteration accuracy: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
         cout << "1st iteration AUC: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";
         //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i](AllSum[i] -5/8sum Beta.z(j)/2.z(ji)/2
-
+	cout << "final level is: " << context->get_context_data(Beta[0].parms_id())->chain_index() << std::endl;
         for (int k = 2; k < x; k++) {
-
+	    std::cout << "k:" << (k-2) << std::endl;
             //calculate the inner product: this is the only calculation where we can't go feature by feature
             evaluator.mod_switch_to_inplace(dataenc[0], Beta[0].parms_id());
             evaluator.multiply(dataenc[0], Beta[0], Htemp);
             evaluator.relinearize_inplace(Htemp, relin_keys);
             evaluator.rescale_to_next_inplace(Htemp);
 
+	    
             for (int i = 1; i < nfeatures; i++) {
-                evaluator.mod_switch_to_inplace(dataenc[i], Beta[i].parms_id());
-                evaluator.multiply(dataenc[i], Beta[i], ctemp);
-                evaluator.relinearize_inplace(ctemp, relin_keys);
-                evaluator.rescale_to_next_inplace(ctemp);
-                evaluator.add_inplace(Htemp, ctemp);
+			evaluator.mod_switch_to_inplace(dataenc[i], Beta[i].parms_id());
+			evaluator.multiply(dataenc[i], Beta[i], ctemp);
+                	evaluator.relinearize_inplace(ctemp, relin_keys);
+                	evaluator.rescale_to_next_inplace(ctemp);
+                	evaluator.add_inplace(Htemp, ctemp);
+
             }
+	    std::cout << "First loop passed" << std::endl;
             /*cout << "6\n";*/
             //now we have a vector Htemp {beta.zi/2} i=1,...,n. so we can evaluate the update circuit
             //feature by feature
             for (int i = 0; i < nfeatures; i++) {
+		std::cout << i << std::endl;
                 /*cout << "7\n";*/
                 //first modify 5/8zji/2 so that it can be multiplied by the inner product
                 evaluator.mod_switch_to_inplace(dataencscale[i], Htemp.parms_id());
@@ -284,6 +288,8 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
                     evaluator.add_inplace(ctemp, allsumtemp);
                 }
 
+		std::cout << "Allsum done" << std::endl;
+
                 //subtract this from AllSum[i], first switching down & modifying scale
                 allsumtemp = AllSum[i];
                 evaluator.mod_switch_to_inplace(allsumtemp, ctemp.parms_id());
@@ -291,18 +297,27 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
                 evaluator.negate_inplace(ctemp);
                 evaluator.add_inplace(ctemp, allsumtemp);
 
+		std::cout << "Switching down done" << std::endl;
 
                 //now multiply by H[i]
                 evaluator.mod_switch_to_inplace(H[i], ctemp.parms_id());
-                evaluator.multiply_inplace(ctemp, H[i]);
-                evaluator.relinearize_inplace(ctemp, relin_keys);
+		std::cout << "switch on H[i]" << std::endl;
+		ctemp.scale() = H[i].scale();
+		std::cout << "context bits" << context->get_context_data(ctemp.parms_id())->total_coeff_modulus_bit_count() << std::endl;
+		std::cout << "Scale:" << static_cast<int>(log2(ctemp.scale())) << std::endl;
+		evaluator.multiply_inplace(ctemp, H[i]);
+		std::cout << "Multiplied inplace" << std::endl;
+		evaluator.relinearize_inplace(ctemp, relin_keys);
+		std::cout << "relinearized too" << std::endl;
                 evaluator.rescale_to_next_inplace(ctemp);
+		std::cout << "Multiplied by H[i]" << std::endl;
 
                 //and finally update Beta[i]
                 evaluator.mod_switch_to_inplace(Beta[i], ctemp.parms_id());
                 Beta[i].scale() = ctemp.scale();
                 evaluator.add_inplace(Beta[i], ctemp);
             }
+	    std::cout << "Pushing into weights" << std::endl;
             weights.clear();
             for (int i = 0; i < nfeatures; i++) {
                 decryptor.decrypt(Beta[i], plain);
@@ -312,7 +327,9 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             }
             cout << "iteration " << k << " accuracy is: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
             cout << "AUC is: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";
-        }
+            cout << "final level is: " << context->get_context_data(Beta[0].parms_id())->chain_index() << std::endl; 
+	}
+
         cout << "final level is: " << context->get_context_data(Beta[0].parms_id())->chain_index();
 
         end = chrono::steady_clock::now();
