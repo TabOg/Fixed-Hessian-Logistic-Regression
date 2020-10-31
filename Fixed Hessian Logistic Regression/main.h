@@ -8,6 +8,7 @@ using namespace std;
 using namespace seal;
 
 int Fixed_Hessian_Chebyshev(bool ringdim);
+int Fixed_Hessian_Compact(bool ringdim);
 int Fixed_Hessian_Taylor();
 int Fixed_Hessian_IDASH();
 int Nesterov_GD(bool ringbool);
