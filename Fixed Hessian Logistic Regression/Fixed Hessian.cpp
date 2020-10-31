@@ -119,7 +119,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             	evaluator.rescale_to_next_inplace(local_temp);
             	//allsum H[i]
             	
-		Ciphertext allsumtemp = H[i];
+		Ciphertext allsumtemp = local_temp;
             	for (int j = 0; j < log2(slot_count); j++) {
                 	local_temp = allsumtemp;
                 	evaluator.rotate_vector(local_temp, pow(2, j), gal_keys, local_temp);
