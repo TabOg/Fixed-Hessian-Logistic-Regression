@@ -27,7 +27,8 @@ int main() {
     string iternum;
     string ringdim;
     bool invalid = true;
-    bool ringbool;
+    bool ringbool{};
+    string encoding;
     do
     {
         cout << endl << "> Run example (1 ~ 5) or exit (0): ";
@@ -111,7 +112,21 @@ int main() {
             cin >> ringdim;
         }
         ringbool = (stoi(ringdim) == 1);
-        Fixed_Hessian_Chebyshev(ringbool);
+        cout << "Select Encoding Style: Feature (1) or Compact (0):";
+        cin >> encoding;
+        while (!is_number(encoding)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select Encoding Style: Feature (1) or Compact (0):";
+            cin >> encoding;
+        }
+        while (!(stoi(encoding) == 0 || stoi(encoding) == 1)) {
+            cout << "Please enter either 0 or 1!\n";
+            cout << "Select Encoding Style: Feature (1) or Compact (0):";
+            cin >> encoding;
+        }
+        if (stoi(encoding) == 1)Fixed_Hessian_Chebyshev(ringbool);
+        else Fixed_Hessian_Compact(ringbool);
+        
         break;
 
     case 5:
