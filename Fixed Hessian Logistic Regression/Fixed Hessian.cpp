@@ -21,7 +21,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
     mod.push_back(50);
     for (int i = 0; i < x; i++)mod.push_back(40);
     mod.push_back(50);
-    ringdim ? 5 : 12;
+    x = ringdim ? 5 : 12;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
@@ -304,7 +304,7 @@ int Fixed_Hessian_Compact(bool ringdim) {
     mod.push_back(50);
     for (int i = 0; i < x; i++)mod.push_back(40);
     mod.push_back(50);
-    ringdim ? 4 : 12;
+    x = ringdim ? 4 : 12;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();

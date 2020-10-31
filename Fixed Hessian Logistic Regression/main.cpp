@@ -117,6 +117,7 @@ int main() {
             cout << "Please enter either 0 or 1!\n";
             cout << "Select Encoding Style: Feature (1) or Compact (0):";
             cin >> ringdim;
+        }
         while (!(stoi(encoding) == 0 || stoi(encoding) == 1)) {
             cout << "Please enter either 0 or 1!\n";
             cout << "Select Encoding Style: Feature (1) or Compact (0):";
