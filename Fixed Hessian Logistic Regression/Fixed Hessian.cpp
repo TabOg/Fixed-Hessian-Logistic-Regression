@@ -146,74 +146,94 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         evaluator.mod_switch_to_next_inplace(P_T1);
         evaluator.mod_switch_to_next_inplace(P_T1);
 
+	// Similarly to above we can parallelise this loop
+	// We reuse h_mutex here too to make sure we write back safely
         for (int i = 0; i < nfeatures; i++) {
-            //negate and store a copy of H(i,i) for later:
-            Htemp = H[i];
-            evaluator.negate_inplace(Htemp);
+	   tp.push([&H,i, &H_mutex, &evaluator, &relin_keys, &gal_keys, slot_count, P_T1, P_T2]() {
+            	//negate and store a copy of H(i,i) for later:
+            	auto Htemp = H[i];
+		auto local_hi = H[i];
+            	evaluator.negate_inplace(Htemp);
 
-            //find v0 = T1 + T2H(i,i):
-            evaluator.multiply_plain_inplace(H[i], P_T2);
-            evaluator.rescale_to_next_inplace(H[i]);
-            P_T1.scale() = H[i].scale();
-            evaluator.add_plain_inplace(H[i], P_T1);
+            	//find v0 = T1 + T2H(i,i):
+            	evaluator.multiply_plain_inplace(local_hi, P_T2);
+            	evaluator.rescale_to_next_inplace(local_hi);
+            	P_T1.scale() = local_hi.scale();
+            	evaluator.add_plain_inplace(local_hi, P_T1);
+		
+		Ciphertext ctemp;
+            	//now iterate Newton Raphson: each update is 2v - H[i,i]v^2
+            	for (int j = 0; j < 3; j++) {
+                	//first double and store the result
+                	evaluator.add(local_hi, local_hi, ctemp);
 
-            //now iterate Newton Raphson: each update is 2v - H[i,i]v^2
-            for (int j = 0; j < 3; j++) {
+                	//now square the current value, relin and rescale
+                	evaluator.square_inplace(local_hi);
+                	evaluator.relinearize_inplace(local_hi, relin_keys);
+                	evaluator.rescale_to_next_inplace(local_hi);
 
-                //first double and store the result
-                evaluator.add(H[i], H[i], ctemp);
+                	//now mod switch down our stored value Htemp, and multiply
+                	evaluator.mod_switch_to_inplace(Htemp, local_hi.parms_id());
+                	evaluator.multiply_inplace(local_hi, Htemp);
+                	evaluator.relinearize_inplace(local_hi, relin_keys);
+                	evaluator.rescale_to_next_inplace(local_hi);
 
-                //now square the current value, relin and rescale
-
-                evaluator.square_inplace(H[i]);
-                evaluator.relinearize_inplace(H[i], relin_keys);
-                evaluator.rescale_to_next_inplace(H[i]);
-
-                //now mod switch down our stored value Htemp, and multiply
-                evaluator.mod_switch_to_inplace(Htemp, H[i].parms_id());
-                evaluator.multiply_inplace(H[i], Htemp);
-                evaluator.relinearize_inplace(H[i], relin_keys);
-                evaluator.rescale_to_next_inplace(H[i]);
-
-                //modify scale of ctemp = 2v, mod switch down, and add
-                ctemp.scale() = H[i].scale();
-                evaluator.mod_switch_to_inplace(ctemp, H[i].parms_id());
-                evaluator.add_inplace(H[i], ctemp);
+                	//modify scale of ctemp = 2v, mod switch down, and add
+                	ctemp.scale() = local_hi.scale();
+                	evaluator.mod_switch_to_inplace(ctemp, local_hi.parms_id());
+                	evaluator.add_inplace(local_hi, ctemp);
             }
+	    std::lock_guard<std::mutex> lock(H_mutex);
+	    H[i] = local_hi;
         }
 
+
+	tp.wait_work();
         //precompute AllSum: AllSum[i] = sum(zji/2)
         AllSum.clear();
-        AllSum.reserve(nfeatures);
+	AllSum.resize(nfeatures);
+	std::mutex AllSumMutex;
         for (int i = 0; i < nfeatures; i++) {
+	    tp.push([i, &evaluator, &dataenc, slot_count, &gal_keys, &AllSumMutex]() {
+            	auto allsumtemp = dataenc[i];
+            	Ciphertext ctemp;
+		for (int j = 0; j < log2(slot_count); j++) {
+                	ctemp = allsumtemp;
+                	evaluator.rotate_vector_inplace(ctemp, pow(2, j), gal_keys);
+                	evaluator.add_inplace(allsumtemp, ctemp);
+            	}
+		std::lock_guard<std::mutex> lock(AllSumMutex);
+            	AllSum[i] = allsumtemp;
+          });
+	}
 
-            allsumtemp = dataenc[i];
-            for (int j = 0; j < log2(slot_count); j++) {
-                ctemp = allsumtemp;
-                evaluator.rotate_vector_inplace(ctemp, pow(2, j), gal_keys);
-                evaluator.add_inplace(allsumtemp, ctemp);
-            }
-            AllSum.push_back(allsumtemp);
-        }
-
-        //compute first iteration: beta[i]=H[i]AllSum[i]
+	tp.wait_work();
+        
+	//compute first iteration: beta[i]=H[i]AllSum[i]
         Beta.clear();
-        Beta.reserve(nfeatures);
+        Beta.resize(nfeatures);
 
         for (int i = 0; i < nfeatures; i++) {
-            allsumtemp = AllSum[i];
-            evaluator.mod_switch_to_inplace(allsumtemp, H[i].parms_id());
-            evaluator.multiply_inplace(allsumtemp, H[i]);
-            evaluator.relinearize_inplace(allsumtemp, relin_keys);
-            evaluator.rescale_to_next_inplace(allsumtemp);
-            Beta.push_back(allsumtemp);
-        }
+            tp.push([i, &evaluator, &relin_keys, &H_mutex]() {
+	    	auto allsumtemp = AllSum[i];
+            	auto local_hi   = H[i];
 
+		evaluator.mod_switch_to_inplace(allsumtemp, local_hi);
+            	evaluator.multiply_inplace(allsumtemp, local_hi);
+            	evaluator.relinearize_inplace(allsumtemp, relin_keys);
+            	evaluator.rescale_to_next_inplace(allsumtemp);
+		std::lock_guard<std::mutex> lock(H_mutex);
+		Beta[i] = allsumtemp;
+		Beta.push_back(allsumtemp);
+             });
+	}
 
+	tp.wait_work();
         //we will also need (a copy of) each data vector to be multiplied by 5/8: we do this now
         dataencscale = dataenc;
         encoder.encode(0.625, scale, plain);
-        for (int i = 0; i < nfeatures; i++) {
+        
+	for (int i = 0; i < nfeatures; i++) {
             evaluator.multiply_plain_inplace(dataencscale[i], plain);
             evaluator.rescale_to_next_inplace(dataencscale[i]);
         }
