@@ -41,7 +41,8 @@ int ImportData(dMat& Matrix, string filename) {
 		Matrix.push_back(entry1);
 	}
 	else {
-		cout << "could not read file" << exit;
+		cout << "could not read file" << endl;
+        exit(1);
 	}
 	//process rest of the data
 	while (getline(inFile, line)) {
@@ -50,7 +51,8 @@ int ImportData(dMat& Matrix, string filename) {
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		//record should have the same number of features
 		if (record.size() != ncolumns) {
-			cout << "database dimension error" << exit;
+			cout << "database dimension error" << endl;
+            exit(2);
 		}
 		//define a new entry
 		vector<double> entryi;
@@ -130,7 +132,8 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		Matrix.push_back(entry1);
 	}
 	else {
-		cout << "could not read file" << exit;
+		cout << "could not read file" << endl;
+        exit(3);
 	}
 	//process rest of the data
 	while (getline(inFile, line)) {
@@ -139,7 +142,8 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		//record should have the same number of features
 		if (record.size() != ncolumns) {
-			cout << "database dimension error" << exit;
+			cout << "database dimension error" << endl;
+            exit(4);
 		}
 		//define a new entry
 		vector<double> entryi;
