@@ -76,11 +76,12 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
 
         //encode the data, a column at a time. The ith element of data corresponds to the ith feature
         dataplain.clear();
+	dataplain.reserve(nfeatures);
         for (int i = 0; i < nfeatures; i++) {
             input.clear();
             for (int j = 0; j < cvtrain[l].size(); j++)input.push_back(cvtrain[l][j][i]);
             encoder.encode(input, scale, plain);
-            dataplain.push_back(plain);
+            dataplain.emplace_back(plain);
         }
         end = chrono::steady_clock::now();
         diff = end - start;
@@ -90,10 +91,11 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         start = chrono::steady_clock::now();
         //encrypt these plaintexts        
         dataenc.clear();
+	dataenc.reserve(dataplain.size());
 
         for (int i = 0; i < dataplain.size(); i++) {
             encryptor.encrypt(dataplain[i], ctemp);
-            dataenc.push_back(ctemp);
+            dataenc.emplace_back(ctemp);
         }
 
         end = chrono::steady_clock::now();
@@ -238,12 +240,14 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             evaluator.rescale_to_next_inplace(dataencscale[i]);
         }
         weights.clear();
+	weights.reserve(nfeatures);
 
         for (int i = 0; i < nfeatures; i++) {
             decryptor.decrypt(Beta[i], plain);
             encoder.decode(plain, input);
-            weights.push_back(input[0]);
+            weights.emplace_back(input[0]);
         }
+
         cout << weights.size();
         cout << "," << cvtrain[l][0].size() << "\n";
         cout << "1st iteration accuracy: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
@@ -272,57 +276,62 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             //now we have a vector Htemp {beta.zi/2} i=1,...,n. so we can evaluate the update circuit
             //feature by feature
             for (int i = 0; i < nfeatures; i++) {
-		std::cout << i << std::endl;
-                /*cout << "7\n";*/
-                //first modify 5/8zji/2 so that it can be multiplied by the inner product
-                evaluator.mod_switch_to_inplace(dataencscale[i], Htemp.parms_id());
-                //now multiply, relin, rescale
-                evaluator.multiply(dataencscale[i], Htemp, ctemp);
-                evaluator.relinearize_inplace(ctemp, relin_keys);
-                evaluator.rescale_to_next_inplace(ctemp);
+		tp.push([&evaluator, &AllSum,  &H, &H_mutex, slot_count, &gal_keys, i, &dataencscale, Htemp, &relin_keys, &Beta]() {
+		
+			Ciphertext ctemp;
+			Ciphertext allsumtemp;
+                	auto d_temp = dataencscale[i]; // Reading is atomic on std::vectors, but writes aren't: so take a copy before operating
+			//first modify 5/8zji/2 so that it can be multiplied by the inner product
+                	evaluator.mod_switch_to_inplace(d_temp, Htemp.parms_id());
+                	//now multiply, relin, rescale
+                	evaluator.multiply(d_temp, Htemp, ctemp);
+                	evaluator.relinearize_inplace(ctemp, relin_keys);
+                	evaluator.rescale_to_next_inplace(ctemp);
 
-                //now we need to allsum this vector:
-                for (int j = 0; j < log2(slot_count); j++) {
-                    allsumtemp = ctemp;
-                    evaluator.rotate_vector_inplace(allsumtemp, pow(2, j), gal_keys);
-                    evaluator.add_inplace(ctemp, allsumtemp);
-                }
+                	//now we need to allsum this vector:
+                	for (int j = 0; j < log2(slot_count); j++) {
+                    		allsumtemp = ctemp;
+                    		evaluator.rotate_vector_inplace(allsumtemp, pow(2, j), gal_keys);
+                    		evaluator.add_inplace(ctemp, allsumtemp);
+                	}
 
-		std::cout << "Allsum done" << std::endl;
+                	//subtract this from AllSum[i], first switching down & modifying scale
+                	allsumtemp = AllSum[i];
+			auto temp_h = H[i];
+                	evaluator.mod_switch_to_inplace(allsumtemp, ctemp.parms_id());
+                	allsumtemp.scale() = ctemp.scale();
+                	evaluator.negate_inplace(ctemp);
+                	evaluator.add_inplace(ctemp, allsumtemp);
 
-                //subtract this from AllSum[i], first switching down & modifying scale
-                allsumtemp = AllSum[i];
-                evaluator.mod_switch_to_inplace(allsumtemp, ctemp.parms_id());
-                allsumtemp.scale() = ctemp.scale();
-                evaluator.negate_inplace(ctemp);
-                evaluator.add_inplace(ctemp, allsumtemp);
+                	//now multiply by H[i]
+                	evaluator.mod_switch_to_inplace(temp_h, ctemp.parms_id());
+			ctemp.scale() = temp_h.scale();
+			evaluator.multiply_inplace(ctemp, temp_h);
+			evaluator.relinearize_inplace(ctemp, relin_keys);
+                	evaluator.rescale_to_next_inplace(ctemp);
 
-		std::cout << "Switching down done" << std::endl;
+			auto temp_beta = Beta[i];
+                	//and finally update Beta[i]
+                	evaluator.mod_switch_to_inplace(temp_beta, ctemp.parms_id());
+                	temp_beta.scale() = ctemp.scale();
+                	evaluator.add_inplace(temp_beta, ctemp);
 
-                //now multiply by H[i]
-                evaluator.mod_switch_to_inplace(H[i], ctemp.parms_id());
-		std::cout << "switch on H[i]" << std::endl;
-		ctemp.scale() = H[i].scale();
-		std::cout << "context bits" << context->get_context_data(ctemp.parms_id())->total_coeff_modulus_bit_count() << std::endl;
-		std::cout << "Scale:" << static_cast<int>(log2(ctemp.scale())) << std::endl;
-		evaluator.multiply_inplace(ctemp, H[i]);
-		std::cout << "Multiplied inplace" << std::endl;
-		evaluator.relinearize_inplace(ctemp, relin_keys);
-		std::cout << "relinearized too" << std::endl;
-                evaluator.rescale_to_next_inplace(ctemp);
-		std::cout << "Multiplied by H[i]" << std::endl;
+			std::lock_guard<std::mutex> lock(H_mutex);
+			H[i] = temp_h;
+			Beta[i] = temp_beta;
+			dataencscale[i] = d_temp;
 
-                //and finally update Beta[i]
-                evaluator.mod_switch_to_inplace(Beta[i], ctemp.parms_id());
-                Beta[i].scale() = ctemp.scale();
-                evaluator.add_inplace(Beta[i], ctemp);
-            }
-	    std::cout << "Pushing into weights" << std::endl;
+            	});
+	    }
+	    
+	    tp.wait_work();
             weights.clear();
+	    weights.reserve(nfeatures);
+
             for (int i = 0; i < nfeatures; i++) {
                 decryptor.decrypt(Beta[i], plain);
                 encoder.decode(plain, input);
-                weights.push_back(input[0]);
+                weights.emplace_back(input[0]);
 
             }
             cout << "iteration " << k << " accuracy is: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
