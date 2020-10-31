@@ -24,7 +24,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
     mod.push_back(50);
     for (int i = 0; i < x; i++)mod.push_back(40);
     mod.push_back(50);
-    ringdim ? 5 : 12;
+    x = ringdim ? 5 : 12;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
@@ -149,7 +149,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
 	// Similarly to above we can parallelise this loop
 	// We reuse h_mutex here too to make sure we write back safely
         for (int i = 0; i < nfeatures; i++) {
-	   tp.push([&H,i, &H_mutex, &evaluator, &relin_keys, &gal_keys, slot_count, P_T1, P_T2]() {
+	   tp.push([&H,i, &H_mutex, &evaluator, &relin_keys, &P_T1, &P_T2]() {
             	//negate and store a copy of H(i,i) for later:
             	auto Htemp = H[i];
 		auto local_hi = H[i];
@@ -185,7 +185,8 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             }
 	    std::lock_guard<std::mutex> lock(H_mutex);
 	    H[i] = local_hi;
-        }
+        });
+     }
 
 
 	tp.wait_work();
@@ -194,7 +195,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
 	AllSum.resize(nfeatures);
 	std::mutex AllSumMutex;
         for (int i = 0; i < nfeatures; i++) {
-	    tp.push([i, &evaluator, &dataenc, slot_count, &gal_keys, &AllSumMutex]() {
+	    tp.push([i, &evaluator, &dataenc, slot_count, &gal_keys, &AllSumMutex, &AllSum]() {
             	auto allsumtemp = dataenc[i];
             	Ciphertext ctemp;
 		for (int j = 0; j < log2(slot_count); j++) {
@@ -214,17 +215,16 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         Beta.resize(nfeatures);
 
         for (int i = 0; i < nfeatures; i++) {
-            tp.push([i, &evaluator, &relin_keys, &H_mutex]() {
+            tp.push([i, &evaluator, &relin_keys, &H, &H_mutex, &AllSum, &Beta]() {
 	    	auto allsumtemp = AllSum[i];
             	auto local_hi   = H[i];
 
-		evaluator.mod_switch_to_inplace(allsumtemp, local_hi);
+		evaluator.mod_switch_to_inplace(allsumtemp, local_hi.parms_id());
             	evaluator.multiply_inplace(allsumtemp, local_hi);
             	evaluator.relinearize_inplace(allsumtemp, relin_keys);
             	evaluator.rescale_to_next_inplace(allsumtemp);
 		std::lock_guard<std::mutex> lock(H_mutex);
 		Beta[i] = allsumtemp;
-		Beta.push_back(allsumtemp);
              });
 	}
 
