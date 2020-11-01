@@ -3,7 +3,6 @@
 #include "databasetools.h"
 #include "logregtools.h"
 #include "algorithm"
-#include "threadpool.hpp"
 
 using namespace std;
 using namespace seal;
@@ -13,18 +12,16 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
     dMat Matrix;
     ImportDataLR(Matrix, "edin.txt", false, 2);
 
-    thread_pool::thread_pool tp(10);
-
     EncryptionParameters parms(scheme_type::CKKS);
     size_t poly_modulus_degree = ringdim ? 32768 : 65536;
 
     parms.set_poly_modulus_degree(poly_modulus_degree);
     vector<int> mod;
-    int x = ringdim ? 18 : 39;
+    int x = ringdim ? 17 : 41;
     mod.push_back(50);
     for (int i = 0; i < x; i++)mod.push_back(40);
     mod.push_back(50);
-    x = ringdim ? 5 : 11;
+    x = ringdim ? 5 : 12;
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context...";
     auto start = chrono::steady_clock::now();
@@ -95,43 +92,29 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             encryptor.encrypt(dataplain[i], ctemp);
             dataenc.push_back(ctemp);
         }
-
         end = chrono::steady_clock::now();
         diff = end - start;
         cout << "Encrypting time = " << chrono::duration <double, milli>(diff).count() / 1000.0 << " s \n";
         cout << "Creating H...";
         start = chrono::steady_clock::now();
-        
-	//creating H: first add all ciphertexts
+        //creating H: first add all ciphertexts
         H.clear();
         for (int i = 1; i < nfeatures; i++)evaluator.add_inplace(ctemp, dataenc[1. * nfeatures - 1 - i]);
         H = dataenc;
         //now create H(i,i)
-	// We do this in parallel, treating each H[i] independently.
-	std::mutex H_mutex;
         for (int i = 0; i < nfeatures; i++) {
-	    tp.push([&H,i, &H_mutex, &evaluator, &ctemp, &relin_keys, &gal_keys, slot_count]() {
-		
-		auto local_temp = H[i];
-	    
-            	evaluator.multiply_inplace(local_temp, ctemp);
-            	evaluator.relinearize_inplace(local_temp, relin_keys);
-            	evaluator.rescale_to_next_inplace(local_temp);
-            	//allsum H[i]
-            	
-		Ciphertext allsumtemp = local_temp;
-            	for (int j = 0; j < log2(slot_count); j++) {
-                	local_temp = allsumtemp;
-                	evaluator.rotate_vector(local_temp, pow(2, j), gal_keys, local_temp);
-                	evaluator.add_inplace(allsumtemp, local_temp);
-            	}
-		std::lock_guard<std::mutex> lock(H_mutex);
-            	H[i] = allsumtemp;
-          });
-	}
-
-	// Wait for the previous loop to finish
-	tp.wait_work();
+            evaluator.multiply_inplace(H[i], ctemp);
+            evaluator.relinearize_inplace(H[i], relin_keys);
+            evaluator.rescale_to_next_inplace(H[i]);
+            //allsum H[i]
+            allsumtemp = H[i];
+            for (int j = 0; j < log2(slot_count); j++) {
+                H[i] = allsumtemp;
+                evaluator.rotate_vector(H[i], pow(2, j), gal_keys, H[i]);
+                evaluator.add_inplace(allsumtemp, H[i]);
+            }
+            H[i] = allsumtemp;
+        }
         //time to calculate 1/H(i,i) -- first we need our starting point, T1 + T2D
         cout << "Calculating 1/H(i)...";
         t1 = T1(0.25 * (nfeatures * n));
@@ -146,94 +129,74 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         evaluator.mod_switch_to_next_inplace(P_T1);
         evaluator.mod_switch_to_next_inplace(P_T1);
 
-	// Similarly to above we can parallelise this loop
-	// We reuse h_mutex here too to make sure we write back safely
         for (int i = 0; i < nfeatures; i++) {
-	   tp.push([&H,i, &H_mutex, &evaluator, &relin_keys, &P_T1, &P_T2]() {
-            	//negate and store a copy of H(i,i) for later:
-            	auto Htemp = H[i];
-		auto local_hi = H[i];
-            	evaluator.negate_inplace(Htemp);
+            //negate and store a copy of H(i,i) for later:
+            Htemp = H[i];
+            evaluator.negate_inplace(Htemp);
 
-            	//find v0 = T1 + T2H(i,i):
-            	evaluator.multiply_plain_inplace(local_hi, P_T2);
-            	evaluator.rescale_to_next_inplace(local_hi);
-            	P_T1.scale() = local_hi.scale();
-            	evaluator.add_plain_inplace(local_hi, P_T1);
-		
-		Ciphertext ctemp;
-            	//now iterate Newton Raphson: each update is 2v - H[i,i]v^2
-            	for (int j = 0; j < 3; j++) {
-                	//first double and store the result
-                	evaluator.add(local_hi, local_hi, ctemp);
+            //find v0 = T1 + T2H(i,i):
+            evaluator.multiply_plain_inplace(H[i], P_T2);
+            evaluator.rescale_to_next_inplace(H[i]);
+            P_T1.scale() = H[i].scale();
+            evaluator.add_plain_inplace(H[i], P_T1);
 
-                	//now square the current value, relin and rescale
-                	evaluator.square_inplace(local_hi);
-                	evaluator.relinearize_inplace(local_hi, relin_keys);
-                	evaluator.rescale_to_next_inplace(local_hi);
+            //now iterate Newton Raphson: each update is 2v - H[i,i]v^2
+            for (int j = 0; j < 3; j++) {
 
-                	//now mod switch down our stored value Htemp, and multiply
-                	evaluator.mod_switch_to_inplace(Htemp, local_hi.parms_id());
-                	evaluator.multiply_inplace(local_hi, Htemp);
-                	evaluator.relinearize_inplace(local_hi, relin_keys);
-                	evaluator.rescale_to_next_inplace(local_hi);
+                //first double and store the result
+                evaluator.add(H[i], H[i], ctemp);
 
-                	//modify scale of ctemp = 2v, mod switch down, and add
-                	ctemp.scale() = local_hi.scale();
-                	evaluator.mod_switch_to_inplace(ctemp, local_hi.parms_id());
-                	evaluator.add_inplace(local_hi, ctemp);
+                //now square the current value, relin and rescale
+
+                evaluator.square_inplace(H[i]);
+                evaluator.relinearize_inplace(H[i], relin_keys);
+                evaluator.rescale_to_next_inplace(H[i]);
+
+                //now mod switch down our stored value Htemp, and multiply
+                evaluator.mod_switch_to_inplace(Htemp, H[i].parms_id());
+                evaluator.multiply_inplace(H[i], Htemp);
+                evaluator.relinearize_inplace(H[i], relin_keys);
+                evaluator.rescale_to_next_inplace(H[i]);
+
+                //modify scale of ctemp = 2v, mod switch down, and add
+                ctemp.scale() = H[i].scale();
+                evaluator.mod_switch_to_inplace(ctemp, H[i].parms_id());
+                evaluator.add_inplace(H[i], ctemp);
             }
-	    std::lock_guard<std::mutex> lock(H_mutex);
-	    H[i] = local_hi;
-        });
-     }
+        }
 
-
-	tp.wait_work();
         //precompute AllSum: AllSum[i] = sum(zji/2)
         AllSum.clear();
-	AllSum.resize(nfeatures);
-	std::mutex AllSumMutex;
+        AllSum.reserve(nfeatures);
         for (int i = 0; i < nfeatures; i++) {
-	    tp.push([i, &evaluator, &dataenc, slot_count, &gal_keys, &AllSumMutex, &AllSum]() {
-            	auto allsumtemp = dataenc[i];
-            	Ciphertext ctemp;
-		for (int j = 0; j < log2(slot_count); j++) {
-                	ctemp = allsumtemp;
-                	evaluator.rotate_vector_inplace(ctemp, pow(2, j), gal_keys);
-                	evaluator.add_inplace(allsumtemp, ctemp);
-            	}
-		std::lock_guard<std::mutex> lock(AllSumMutex);
-            	AllSum[i] = allsumtemp;
-          });
-	}
 
-	tp.wait_work();
-        
-	//compute first iteration: beta[i]=H[i]AllSum[i]
+            allsumtemp = dataenc[i];
+            for (int j = 0; j < log2(slot_count); j++) {
+                ctemp = allsumtemp;
+                evaluator.rotate_vector_inplace(ctemp, pow(2, j), gal_keys);
+                evaluator.add_inplace(allsumtemp, ctemp);
+            }
+            AllSum.push_back(allsumtemp);
+        }
+
+        //compute first iteration: beta[i]=H[i]AllSum[i]
         Beta.clear();
-        Beta.resize(nfeatures);
+        Beta.reserve(nfeatures);
 
         for (int i = 0; i < nfeatures; i++) {
-            tp.push([i, &evaluator, &relin_keys, &H, &H_mutex, &AllSum, &Beta]() {
-	    	auto allsumtemp = AllSum[i];
-            	auto local_hi   = H[i];
+            allsumtemp = AllSum[i];
+            evaluator.mod_switch_to_inplace(allsumtemp, H[i].parms_id());
+            evaluator.multiply_inplace(allsumtemp, H[i]);
+            evaluator.relinearize_inplace(allsumtemp, relin_keys);
+            evaluator.rescale_to_next_inplace(allsumtemp);
+            Beta.push_back(allsumtemp);
+        }
 
-		evaluator.mod_switch_to_inplace(allsumtemp, local_hi.parms_id());
-            	evaluator.multiply_inplace(allsumtemp, local_hi);
-            	evaluator.relinearize_inplace(allsumtemp, relin_keys);
-            	evaluator.rescale_to_next_inplace(allsumtemp);
-		std::lock_guard<std::mutex> lock(H_mutex);
-		Beta[i] = allsumtemp;
-             });
-	}
 
-	tp.wait_work();
         //we will also need (a copy of) each data vector to be multiplied by 5/8: we do this now
         dataencscale = dataenc;
         encoder.encode(0.625, scale, plain);
-        
-	for (int i = 0; i < nfeatures; i++) {
+        for (int i = 0; i < nfeatures; i++) {
             evaluator.multiply_plain_inplace(dataencscale[i], plain);
             evaluator.rescale_to_next_inplace(dataencscale[i]);
         }
@@ -249,30 +212,26 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
         cout << "1st iteration accuracy: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
         cout << "1st iteration AUC: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";
         //start of an iteration: we are performing the update beta[i] <- beta[i] + H[i](AllSum[i] -5/8sum Beta.z(j)/2.z(ji)/2
-	cout << "final level is: " << context->get_context_data(Beta[0].parms_id())->chain_index() << std::endl;
+
         for (int k = 2; k < x; k++) {
-	    std::cout << "k:" << (k-2) << std::endl;
+
             //calculate the inner product: this is the only calculation where we can't go feature by feature
             evaluator.mod_switch_to_inplace(dataenc[0], Beta[0].parms_id());
             evaluator.multiply(dataenc[0], Beta[0], Htemp);
             evaluator.relinearize_inplace(Htemp, relin_keys);
             evaluator.rescale_to_next_inplace(Htemp);
 
-	    
             for (int i = 1; i < nfeatures; i++) {
-			evaluator.mod_switch_to_inplace(dataenc[i], Beta[i].parms_id());
-			evaluator.multiply(dataenc[i], Beta[i], ctemp);
-                	evaluator.relinearize_inplace(ctemp, relin_keys);
-                	evaluator.rescale_to_next_inplace(ctemp);
-                	evaluator.add_inplace(Htemp, ctemp);
-
+                evaluator.mod_switch_to_inplace(dataenc[i], Beta[i].parms_id());
+                evaluator.multiply(dataenc[i], Beta[i], ctemp);
+                evaluator.relinearize_inplace(ctemp, relin_keys);
+                evaluator.rescale_to_next_inplace(ctemp);
+                evaluator.add_inplace(Htemp, ctemp);
             }
-	    std::cout << "First loop passed" << std::endl;
             /*cout << "6\n";*/
             //now we have a vector Htemp {beta.zi/2} i=1,...,n. so we can evaluate the update circuit
             //feature by feature
             for (int i = 0; i < nfeatures; i++) {
-		std::cout << i << std::endl;
                 /*cout << "7\n";*/
                 //first modify 5/8zji/2 so that it can be multiplied by the inner product
                 evaluator.mod_switch_to_inplace(dataencscale[i], Htemp.parms_id());
@@ -288,8 +247,6 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
                     evaluator.add_inplace(ctemp, allsumtemp);
                 }
 
-		std::cout << "Allsum done" << std::endl;
-
                 //subtract this from AllSum[i], first switching down & modifying scale
                 allsumtemp = AllSum[i];
                 evaluator.mod_switch_to_inplace(allsumtemp, ctemp.parms_id());
@@ -297,27 +254,17 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
                 evaluator.negate_inplace(ctemp);
                 evaluator.add_inplace(ctemp, allsumtemp);
 
-		std::cout << "Switching down done" << std::endl;
-
                 //now multiply by H[i]
                 evaluator.mod_switch_to_inplace(H[i], ctemp.parms_id());
-		std::cout << "switch on H[i]" << std::endl;
-		ctemp.scale() = H[i].scale();
-		std::cout << "context bits" << context->get_context_data(ctemp.parms_id())->total_coeff_modulus_bit_count() << std::endl;
-		std::cout << "Scale:" << static_cast<int>(log2(ctemp.scale())) << std::endl;
-		evaluator.multiply_inplace(ctemp, H[i]);
-		std::cout << "Multiplied inplace" << std::endl;
-		evaluator.relinearize_inplace(ctemp, relin_keys);
-		std::cout << "relinearized too" << std::endl;
+                evaluator.multiply_inplace(ctemp, H[i]);
+                evaluator.relinearize_inplace(ctemp, relin_keys);
                 evaluator.rescale_to_next_inplace(ctemp);
-		std::cout << "Multiplied by H[i]" << std::endl;
 
                 //and finally update Beta[i]
                 evaluator.mod_switch_to_inplace(Beta[i], ctemp.parms_id());
                 Beta[i].scale() = ctemp.scale();
                 evaluator.add_inplace(Beta[i], ctemp);
             }
-	    std::cout << "Pushing into weights" << std::endl;
             weights.clear();
             for (int i = 0; i < nfeatures; i++) {
                 decryptor.decrypt(Beta[i], plain);
@@ -327,9 +274,7 @@ int Fixed_Hessian_Chebyshev(bool ringdim) {
             }
             cout << "iteration " << k << " accuracy is: " << accuracy_LR(weights, cvtrain[l], 2) << "%\n";
             cout << "AUC is: " << 100 * getAUC(weights, cvtrain[l], 2) << "%\n";
-            cout << "final level is: " << context->get_context_data(Beta[0].parms_id())->chain_index() << std::endl; 
-	}
-
+        }
         cout << "final level is: " << context->get_context_data(Beta[0].parms_id())->chain_index();
 
         end = chrono::steady_clock::now();
