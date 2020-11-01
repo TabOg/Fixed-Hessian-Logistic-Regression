@@ -227,12 +227,16 @@ int GD(bool ringdim) {
             // I couldn't see if there were any interactions (i.e if scaler is recycled across iterations: it shouldn't but 
             // you never know.)
             // So, for safety we can only do this bit in serial
+            cout << "1" << endl;
             for (auto& mult : mults) {
-                evaluator.mod_switch_to_inplace(scaler, mult.parms_id());
-                evaluator.multiply_plain_inplace(mult, scaler);
                 evaluator.rescale_to_next_inplace(mult);
+                cout << "2" << endl;
+                evaluator.mod_switch_to_inplace(scaler, mult.parms_id());
+                cout << "3" << endl;
+                evaluator.multiply_plain_inplace(mult, scaler);
+                cout << "4" << endl;
             }
-
+            cout << "5" << endl;
             // We do this loop in parallel too: again we use a mutex to control
             // writes to mults
             for (int j = 0; j < nfeatures; j++) {
@@ -260,6 +264,7 @@ int GD(bool ringdim) {
                     auto beta = Beta[j];
                     auto ctsum_j = ctsum[j];
                     //switch down a copy of ctsum[j], add to all sum, update poly
+                    
                     evaluator.multiply_plain(ctsum_j, alphap, temp);
                     // Writes to temp
                     evaluator.rescale_to_next_inplace(temp);
@@ -268,7 +273,7 @@ int GD(bool ringdim) {
                     // Writes to previous mult
                     evaluator.add_inplace(mult, temp);
                     //update weights vector
-                    mult.scale() = beta.scale();
+                    beta.scale() = mult.scale();
                     // Writes to both Betas, but mult is unique per iteration
 
                     evaluator.mod_switch_to_inplace(beta, mult.parms_id());
@@ -276,7 +281,6 @@ int GD(bool ringdim) {
                     // Synchronise to beta and ctsum
                     std::lock_guard<std::mutex> lock(mutex);
                     // These should be implicit moves in C++17.
-                    beta.scale() = pow(2, 28);
                     Beta[j] = beta;
                     ctsum[j] = ctsum_j;
                     });
