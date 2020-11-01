@@ -177,9 +177,10 @@ int GD(bool ringdim) {
                     evaluator.rescale_to_next_inplace(mult);
                     std::lock_guard<std::mutex> lock(mutex);
                     mults[i - 1] = mult;
+		    cout << "mult scale is "<<log2(mult.scale()<<"\n";
                     });
             }
-
+	    
             tp.wait_work();
 
             for (const auto& mult : mults)
@@ -229,12 +230,12 @@ int GD(bool ringdim) {
             // So, for safety we can only do this bit in serial
             cout << "1" << endl;
             for (auto& mult : mults) {
-                evaluator.rescale_to_next_inplace(mult);
-                cout << "2" << endl;
-                evaluator.mod_switch_to_inplace(scaler, mult.parms_id());
-                cout << "3" << endl;
+                cout << "2"<<endl;
+              	evaluator.mod_switch_to_inplace(scaler, mult.parms_id());                
+		cout << "mult scale is "<<log2(mult.scale())<<", scaler scale is "<<log2(scaler.scale())<<"\n";
                 evaluator.multiply_plain_inplace(mult, scaler);
                 cout << "4" << endl;
+		evaluator.rescale_to_next_inplace(mult);
             }
             cout << "5" << endl;
             // We do this loop in parallel too: again we use a mutex to control
@@ -273,7 +274,7 @@ int GD(bool ringdim) {
                     // Writes to previous mult
                     evaluator.add_inplace(mult, temp);
                     //update weights vector
-                    beta.scale() = mult.scale();
+                    mult.scale()=beta.scale();
                     // Writes to both Betas, but mult is unique per iteration
 
                     evaluator.mod_switch_to_inplace(beta, mult.parms_id());
@@ -281,6 +282,7 @@ int GD(bool ringdim) {
                     // Synchronise to beta and ctsum
                     std::lock_guard<std::mutex> lock(mutex);
                     // These should be implicit moves in C++17.
+		    beta.scale()=pow(2,28);
                     Beta[j] = beta;
                     ctsum[j] = ctsum_j;
                     });
