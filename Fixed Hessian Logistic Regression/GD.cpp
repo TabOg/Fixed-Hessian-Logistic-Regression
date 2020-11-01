@@ -177,7 +177,7 @@ int GD(bool ringdim) {
                     evaluator.rescale_to_next_inplace(mult);
                     std::lock_guard<std::mutex> lock(mutex);
                     mults[i - 1] = mult;
-		    cout << "mult scale is "<<log2(mult.scale()<<"\n";
+		    cout << "mult scale is "<<log2(mult.scale())<<"\n";
                     });
             }
 	    
@@ -233,7 +233,8 @@ int GD(bool ringdim) {
                 cout << "2"<<endl;
               	evaluator.mod_switch_to_inplace(scaler, mult.parms_id());                
 		cout << "mult scale is "<<log2(mult.scale())<<", scaler scale is "<<log2(scaler.scale())<<"\n";
-                evaluator.multiply_plain_inplace(mult, scaler);
+                cout << "mult level is "<<context->get_context_data(mult.parms_id())->chain_index()<<"\n";
+		evaluator.multiply_plain_inplace(mult, scaler);
                 cout << "4" << endl;
 		evaluator.rescale_to_next_inplace(mult);
             }
@@ -282,8 +283,8 @@ int GD(bool ringdim) {
                     // Synchronise to beta and ctsum
                     std::lock_guard<std::mutex> lock(mutex);
                     // These should be implicit moves in C++17.
-		    beta.scale()=pow(2,28);
-                    Beta[j] = beta;
+		    
+		    Beta[j] = beta;
                     ctsum[j] = ctsum_j;
                     });
             }
