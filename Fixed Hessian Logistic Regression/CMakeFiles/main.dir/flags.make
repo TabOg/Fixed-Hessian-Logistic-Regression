@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = -isystem /home/tabog/SEAL/native/src -isystem /home/tabog/SEAL/thirdparty/msgsl/src/include
 
-CXX_FLAGS =   -Ofast -march=native -mtune=native -fPIC -fPIE -pedantic -Wall -pthread -std=gnu++17
+CXX_FLAGS =   -O3 -march=native -mtune=native -fPIC -fPIE -pedantic -Wall -pthread -std=gnu++17
 

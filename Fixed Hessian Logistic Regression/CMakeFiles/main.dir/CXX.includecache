@@ -6,15 +6,17 @@
 
 #IncludeRegexTransform: 
 
-/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/NAG.cpp
+/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/GD.cpp
 seal/seal.h
 /home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/seal/seal.h
-iostream
--
 databasetools.h
 /home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/databasetools.h
 logregtools.h
 /home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/logregtools.h
+iostream
+-
+threadpool.hpp
+/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/threadpool.hpp
 
 /home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/databasetools.h
 vector
@@ -39,6 +41,34 @@ seal/seal.h
 /home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/logregtools.h
 databasetools.h
 /home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/databasetools.h
+
+/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/threadpool.hpp
+cstdint
+-
+memory
+-
+stdexcept
+-
+vector
+-
+queue
+-
+functional
+-
+thread
+-
+mutex
+-
+condition_variable
+-
+future
+-
+atomic
+-
+thread_pool.hpp
+/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/thread_pool.hpp
+iostream
+-
 
 /home/tabog/SEAL/native/src/seal/batchencoder.h
 seal/context.h
