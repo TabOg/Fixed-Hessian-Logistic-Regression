@@ -177,7 +177,7 @@ int GD(bool ringdim) {
                     evaluator.rescale_to_next_inplace(mult);
                     std::lock_guard<std::mutex> lock(mutex);
                     mults[i - 1] = mult;
-		    cout << "mult scale is "<<log2(mult.scale())<<"\n";
+		    /*cout << "mult scale is "<<log2(mult.scale())<<"\n";*/
                     });
             }
 	    
@@ -185,7 +185,7 @@ int GD(bool ringdim) {
 
             for (const auto& mult : mults)
             {
-                evaluator.add_inplace(innerprod, mult);
+		evaluator.add_inplace(innerprod, mult);
             }
 
             //time to evaluate the polynomial!
@@ -228,17 +228,17 @@ int GD(bool ringdim) {
             // I couldn't see if there were any interactions (i.e if scaler is recycled across iterations: it shouldn't but 
             // you never know.)
             // So, for safety we can only do this bit in serial
-            cout << "1" << endl;
+            /*cout << "1" << endl;*/
             for (auto& mult : mults) {
-                cout << "2"<<endl;
+                /*cout << "2"<<endl;*/
               	evaluator.mod_switch_to_inplace(scaler, mult.parms_id());                
-		cout << "mult scale is "<<log2(mult.scale())<<", scaler scale is "<<log2(scaler.scale())<<"\n";
-                cout << "mult level is "<<context->get_context_data(mult.parms_id())->chain_index()<<"\n";
+		/*cout << "mult scale is "<<log2(mult.scale())<<", scaler scale is "<<log2(scaler.scale())<<"\n";
+                cout << "mult level is "<<context->get_context_data(mult.parms_id())->chain_index()<<"\n";*/
 		evaluator.multiply_plain_inplace(mult, scaler);
-                cout << "4" << endl;
+                /*cout << "4" << endl;*/
 		evaluator.rescale_to_next_inplace(mult);
             }
-            cout << "5" << endl;
+            /*cout << "5" << endl;*/
             // We do this loop in parallel too: again we use a mutex to control
             // writes to mults
             for (int j = 0; j < nfeatures; j++) {
@@ -283,7 +283,7 @@ int GD(bool ringdim) {
                     // Synchronise to beta and ctsum
                     std::lock_guard<std::mutex> lock(mutex);
                     // These should be implicit moves in C++17.
-		    
+		    beta.scale() = pow(2,28);
 		    Beta[j] = beta;
                     ctsum[j] = ctsum_j;
                     });
