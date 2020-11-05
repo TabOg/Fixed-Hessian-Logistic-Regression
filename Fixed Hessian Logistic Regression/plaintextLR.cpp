@@ -68,6 +68,7 @@ int Plaintext_LR_NAG(string filename, int iternum) {
 		for (int k = 0; k < iternum; k++) {
 			T = updatet(t);
 			theta = -(t - 1) / T;
+			t = T;
 			LR_NV_iteration(cvtrain[j], beta, v, 10 / (k + 2), theta, n, nfeatures);
 			cout << "iteration " << k + 1 << " accuracy: " << accuracy_LR(v, cvtrain[j]) << "\n";
 			cout << "iteration " << k + 1 << " AUC: " << getAUC(v, cvtrain[j]) << "\n";
