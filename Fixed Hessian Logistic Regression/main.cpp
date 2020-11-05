@@ -16,11 +16,13 @@ int main() {
     cout << "+----------------------------+----------------------------+" << endl;
     cout << "| 1. Plaintext Gradient      | plaintextLR.cpp            |" << endl;
     cout << "|    Descent                 |                            |" << endl;
-    cout << "| 2. Gradient Descent        | GD.cpp                     |" << endl;
-    cout << "| 3. Nesterov GD             | NAG.cpp                    |" << endl;
-    cout << "| 4. Fixed Hessian with      | Fixed Hessian.cpp          |" << endl;
-    cout << "|    Chebyshev approximation |                            |" << endl;
+    cout << "| 2. Plaintext Nesterov      | plaintextLR.cpp            |" << endl;
+    cout << "|    Descent                 |                            |" << endl;
+    cout << "| 3. Gradient Descent        | GD.cpp                     |" << endl;
+    cout << "| 4. Nesterov GD             | NAG.cpp                    |" << endl;
     cout << "| 5. Fixed Hessian with      | Fixed Hessian.cpp          |" << endl;
+    cout << "|    Chebyshev approximation |                            |" << endl;
+    cout << "| 6. Fixed Hessian with      | Fixed Hessian.cpp          |" << endl;
     cout << "|    Taylor approximation    |                            |" << endl;
     cout << "+----------------------------+----------------------------+" << endl;
     int selection = 0;
@@ -31,12 +33,12 @@ int main() {
     string encoding;
     do
     {
-        cout << endl << "> Run example (1 ~ 5) or exit (0): ";
+        cout << endl << "> Run (1 ~ 6) or exit (0): ";
         if (!(cin >> selection))
         {
             invalid = false;
         }
-        else if (selection < 0 || selection > 5)
+        else if (selection < 0 || selection > 6)
         {
             invalid = false;
         }
@@ -46,7 +48,7 @@ int main() {
         }
         if (!invalid)
         {
-            cout << "  [Beep~~] Invalid option: type 0 ~ 5" << endl;
+            cout << "  [Beep~~] Invalid option: type 0 ~ 6" << endl;
             cin.clear();
             cin.ignore(numeric_limits<streamsize>::max(), '\n');
         }
@@ -65,6 +67,16 @@ int main() {
         Plaintext_LR("edin.txt", stoi(iternum));
         break;
     case 2:
+        cout << "number of iterations = ";
+        cin >> iternum;
+        while (!is_number(iternum)) {
+            cout << "iteration number must be an integer!\n";
+            cout << "number of iterations = ";
+            cin >> iternum;
+        }
+        Plaintext_LR_NAG("edin.txt", stoi(iternum));
+        break;
+    case 3:
         cout << "Select N = 2^16 (0) or N = 2^15 (1):";
         cin >> ringdim;
         while (!is_number(ringdim)) {
@@ -80,7 +92,7 @@ int main() {
         ringbool = (stoi(ringdim) == 1);
         GD(ringbool);
         break;
-    case 3:
+    case 4:
         cout << "Select N = 2^16 (0) or N = 2^15 (1):";
         cin >> ringdim;
         while (!is_number(ringdim)) {
@@ -98,7 +110,7 @@ int main() {
         Nesterov_GD(ringbool);
         break;
 
-    case 4:
+    case 5:
         cout << "Select N = 2^16 (0) or N = 2^15 (1):";
         cin >> ringdim;
         while (!is_number(ringdim)) {
@@ -134,7 +146,7 @@ int main() {
         Fixed_Hessian_Chebyshev(ringbool);
         break;
 
-    case 5:
+    case 6:
         Fixed_Hessian_Taylor();
         break;
 

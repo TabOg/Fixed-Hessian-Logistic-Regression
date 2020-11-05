@@ -93,10 +93,10 @@ int LR_NV_iteration(dMat train, dVec& beta, dVec& v, double alpha, double gamma,
     double sig;
     for (int i = 0; i < n; i++) {
         //find the value of the sigmoid function
-        sig = /*sigmoid(-inner_prod(train[i], v));*/1 / 2 - 1.20096 * inner_prod(train[i], v) / 8 + 0.81562 * pow(inner_prod(train[i], v) / 8, 3);
+        sig = sigmoid(-inner_prod(train[i], v));/*1 / 2 - 1.20096 * inner_prod(train[i], v) / 8 + 0.81562 * pow(inner_prod(train[i], v) / 8, 3)*/;
         sig /= n;
         //loop over the features, adding to the grad vector:
-        for (int j = 0; j < nfeatures; j++) J[j] += sig * train[i][j];
+        for (int l = 0; l < nfeatures; l++) J[l] += sig * train[i][l];
     }
     dVec temp(nfeatures, 0);
     for (int i = 0; i < nfeatures; i++) {
