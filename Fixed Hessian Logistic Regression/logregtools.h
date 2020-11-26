@@ -12,3 +12,4 @@ int LR_NV(dMat train, dVec& beta, dVec& v, int max_iter);
 double updatet(double t);
 double T1(double X);
 double T2(double X);
+int LR_iteration_lowdeg(dMat Matrix, dVec& weights, double learning_rate, int n, int nfeatures);

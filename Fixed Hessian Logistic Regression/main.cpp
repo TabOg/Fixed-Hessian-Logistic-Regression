@@ -38,7 +38,7 @@ int main() {
         {
             invalid = false;
         }
-        else if (selection < 0 || selection > 6)
+        else if (selection < 0 || selection > 7)
         {
             invalid = false;
         }
@@ -148,6 +148,16 @@ int main() {
 
     case 6:
         Fixed_Hessian_Taylor();
+        break;
+    case 7:
+        cout << "number of iterations = ";
+        cin >> iternum;
+        while (!is_number(iternum)) {
+            cout << "iteration number must be an integer!\n";
+            cout << "number of iterations = ";
+            cin >> iternum;
+        }
+        Plaintext_LR_lowdeg("edin.txt", stoi(iternum));
         break;
 
     case 0:

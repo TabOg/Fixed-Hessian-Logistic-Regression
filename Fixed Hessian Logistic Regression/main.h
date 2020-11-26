@@ -15,6 +15,7 @@ int Nesterov_GD(bool ringbool);
 int GD(bool ringdim);
 int Plaintext_LR(string filename, int iternum);
 int Plaintext_LR_NAG(string filename, int iternum);
+int Plaintext_LR_lowdeg(string filename, int iternum);
 
 
 
