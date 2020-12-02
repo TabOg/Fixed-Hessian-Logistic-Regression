@@ -15,19 +15,19 @@ using namespace std;
 using namespace seal;
 
 enum ErrorPos {
-    NO_ERROR = 0;
+    NO_ERROR = 0,
     UNABLE_TO_OPEN_FILE = 1,
     UNABLE_TO_READ_FILE = 2,
     FILE_DIMENSION_ERROR = 3,
 };
 
-constexpr std::string ErrorMessage[4] = {"No error reported.",
+const static std::string  ErrorMessage[4] = {"No error reported.",
                                          "Unable to open the file. Please check the file path and make sure that it is correct.", 
                                          "Unable to read the file. Is the first line malformed?", 
                                          "The number of columns in your file appears to be inconsistent."};
 
 
-int ImportData(dMat& Matrix, string filename) {
+void ImportData(dMat& Matrix, string filename) {
 	//open file
 	ifstream inFile;
 	inFile.open(filename);
@@ -56,7 +56,7 @@ int ImportData(dMat& Matrix, string filename) {
 		Matrix.push_back(entry1);
 	} else {
 		cout << ErrorMessage[ErrorPos::UNABLE_TO_READ_FILE];
-        exit(1);
+        exit(ErrorPos::UNABLE_TO_READ_FILE);
 	}
 	//process rest of the data
 	while (getline(inFile, line)) {
@@ -89,7 +89,7 @@ void AllSum(const Ciphertext& encrypted, Ciphertext& allsum, const unsigned slot
 }
 
 
-void ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, char split_char) {
+void ImportDataLR(dMat& Matrix, const string& filename, bool first,  double divisor, char split_char) {
 	//This function imports data from a .txt file with the following adjustments: changes classification
 	//from {0,1} to {-1,1}; moves the classification to the first (0th) column if it is not there; 
 	//multiplies each entry 1 - d by the classification; divides all entries by the divisor.
@@ -102,12 +102,12 @@ void ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, ch
 	inFile.open(filename);
 	//check file is open
 	if (!inFile) {
-		cout << "Unable to open file. Please check the file path";
-		exit(1);
+		cout << ErrorMessage[ErrorPos::UNABLE_TO_OPEN_FILE];
+		exit(ErrorPos::UNABLE_TO_OPEN_FILE);
 	}
 
 	string line;
-	int ncolumns, j;
+    unsigned ncolumns, j;
 	//process first row, moving class to the front and extracting number of columns
 	if (getline(inFile, line)) {
 		istringstream split(line);
@@ -122,37 +122,37 @@ void ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, ch
 		entry1.push_back((stod(record[j]) * 2 - 1) / (1. * divisor));
 		//preprocessing for logistic regression
 		if (first) {
-			for (int i = 1; i < ncolumns; i++) entry1.push_back(stod(record[i]) * entry1[0]);
+			for (unsigned i = 1; i < ncolumns; i++) entry1.push_back(stod(record[i]) * entry1[0]);
 		}
 		else {
-			for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
+			for (unsigned i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]) * entry1[0]);
 		}
 		
 		//add to matrix
 		Matrix.push_back(entry1);
 	}
 	else {
-		cout << "could not read file" << endl;
-        exit(3);
+		cout << ErrorMessage[ErrorPos::UNABLE_TO_READ_FILE];
+        exit(ErrorPos::UNABLE_TO_READ_FILE);
 	}
 	//process rest of the data
 	while (getline(inFile, line)) {
 		istringstream split(line);
 		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
+		for (string entry; getline(split, entry, split_char); record.emplace_back(entry));
 		//record should have the same number of features
 		if (record.size() != ncolumns) {
-			cout << "database dimension error" << endl;
-            exit(4);
-		}
+		    cout << ErrorMessage[ErrorPos::FILE_DIMENSION_ERROR];
+            exit(ErrorPos::FILE_DIMENSION_ERROR);
+        }
 		//define a new entry
 		vector<double> entryi;
 		entryi.push_back((stod(record[j]) * 2 - 1)/(1.*divisor));
 		if (first) {
-			for (int i = 1; i < ncolumns; i++) entryi.push_back(stod(record[i]) * entryi[0]);
+			for (unsigned i = 1; i < ncolumns; i++) entryi.push_back(stod(record[i]) * entryi[0]);
 		}
 		else {
-			for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
+			for (unsigned i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]) * entryi[0]);
 		}
 		//add it to the matrix
 		Matrix.push_back(entryi);

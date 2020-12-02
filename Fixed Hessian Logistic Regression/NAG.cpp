@@ -6,18 +6,33 @@
 using namespace std;
 using namespace seal;
 
-int Nesterov_GD(bool ringdim) {
-    cout << "Running Nesterov Accelerated Gradient Descent:\n";
+// Create the set of parameters that are to be used for this file.
+// Note: const so that mis-using the [] operator will cause an error.
+static const std::unordered_map<unsigned int, ParameterPack> supported_parameters = {
+    {30, ParameterPack(6, 40, 30, 25)},
+    {31, ParameterPack(5, 41, 31, 25)}};
 
+int Nesterov_GD(const unsigned int precision) {
+    
+    const auto parameter_iter = supported_parameters.find(precision);
+    if(parameter_iter == supported_parameters.cend()) {
+        cerr << "Error: unsupported parameter pack requested. Please try with one of"
+            "the supported parameter sets.\n";
+        exit(1);
+    }
+
+    const auto &parameter_set = parameter_iter->second;
+
+    cout << "Running Nesterov Accelerated Gradient Descent:\n";
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = (ringdim) ? 32768 : 65536;
-    int x = ringdim ? 25 : 55;
+    constexpr size_t poly_modulus_degree = 32768;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    vector<int> mod;
-    mod.push_back(40);
-    for (int i = 0; i < x; i++)mod.push_back(30);
-    mod.push_back(40);
-    x = ringdim ? 6 : 11;
+    
+    vector<int> mod(parameter_set.number_of_primes+2, 
+                    parameter_set.middle_prime_length);
+    mod[0] = parameter_set.sentinel_prime_length;
+    mod[parameter_set.number_of_primes+1] = parameter_set.sentinel_prime_length;
+
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context..."<<endl;
     auto start = chrono::steady_clock::now();
@@ -40,7 +55,7 @@ int Nesterov_GD(bool ringdim) {
     size_t slot_count = encoder.slot_count();
     cout << "Number of slots: " << slot_count << "\n";
     //ncol is the number of rows our matrix will have: we need to know this to do all sum on each column
-    int nrow = slot_count / 16;
+    const unsigned int nrow = slot_count / 16;
     dMat Matrix;
     dVec weights;
     ImportDataLR(Matrix, "edin.txt", false, 8);
@@ -48,17 +63,18 @@ int Nesterov_GD(bool ringdim) {
     CVrandomSampling(cvtrain, cvtest, Matrix);
     Matrix.clear();
 
-    double scale = pow(2.0, 30);
-    double lowscale = pow(2.0, 30);
-    int n, nfeatures;
+    const double scale = pow(2.0, precision);
+    const double lowscale = pow(2.0, precision-10);
+    unsigned n, nfeatures;
     Plaintext data1, data2;
     dVec train1,train2;
     Ciphertext dataenc1, dataenc2;
     Plaintext Cp;
-    double a1 = -1.20096;
-    double a3 = 0.81562;
-    double a4 = a1 / a3;
+    constexpr double a1 = -1.20096;
+    constexpr double a3 = 0.81562;
+    constexpr double a4 = a1 / a3;
     double sc;
+    
     double t = 1.;
     double T;
     Plaintext gammap, mgammap;
@@ -83,7 +99,7 @@ int Nesterov_GD(bool ringdim) {
     double alpha,accuracy,auc;
     accuracy = 0;
     auc = 0;
-    for (int l = 0; l < 5; l++) {
+    for (unsigned l = 0; l < 5; l++) {
         cout << "starting fold " << l + 1 << "...\n";
         n = cvtrain[l].size();
         nfeatures = cvtrain[l][0].size();
@@ -92,9 +108,9 @@ int Nesterov_GD(bool ringdim) {
         //make the training dataset a single vector, corresponding to a matrix with 16 columns:
         //the first 10 are data, the last 6 are zero
         train1.clear();
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < 10; j++)train1.push_back(cvtrain[l][i][j]);
-            for (int j = 10; j < 16; j++)train1.push_back(0);
+        for (unsigned i = 0; i < n; i++) {
+            for (unsigned j = 0; j < 10; j++)train1.push_back(cvtrain[l][i][j]);
+            for (unsigned j = 10; j < 16; j++)train1.push_back(0);
         }
         cout << "Encoding...";
         start = chrono::steady_clock::now();
@@ -107,7 +123,7 @@ int Nesterov_GD(bool ringdim) {
         cout << "creating the matrix C...";
         //creating the matrix C -- start with the message version
         dVec Cm(n * 16.0, 0);
-        for (int i = 0; i < n; i++)Cm[16.0 * i] += 1;
+        for (unsigned i = 0; i < n; i++)Cm[16.0 * i] += 1;
         //now plaintext version: this is a low precision multiplier
         encoder.encode(Cm, lowscale, Cp);
         cout << "done \n";
@@ -129,7 +145,7 @@ int Nesterov_GD(bool ringdim) {
         //this plays an analogous role to ct.sum. In column i, all entries are sum(z_ij/8)
         ctsum1 = dataenc1;
 
-        for (int i = 0; i < log2(nrow); i++) {
+        for (unsigned i = 0; i < log2(nrow); i++) {
             temp = ctsum1;
             evaluator.rotate_vector(temp, 16 * pow(2, i), gal_keys, temp);
             evaluator.add_inplace(ctsum1, temp);
@@ -158,25 +174,25 @@ int Nesterov_GD(bool ringdim) {
         encoder.decode(p1, w1);
         weights.clear();
 
-        for (int i = 0; i < nrow; i++) {
-            for (int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
+        for (unsigned i = 0; i < nrow; i++) {
+            for (unsigned j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
             weightsmat.push_back(weights);
             weights.clear();
         }
         weights = weightsmat[0];
-        for (int i = 1; i < nrow; i++) {
-            for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
+        for (unsigned i = 1; i < nrow; i++) {
+            for (unsigned j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
         }
-        for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
+        for (unsigned  i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
         cout << "1st iteration AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
         cout << "1st iteration accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
 
         weightsmat.clear();
         weights.clear();
         //beginning of an iteration:
-        for (int i = 2; i < x; i++) {
+        for (unsigned i = 1; i < parameter_set.number_of_iterations; i++) {
             //encode learning rate alpha
-            alpha = 10 / (1.0 * i + 1);
+            alpha = 10 / (1.0 * i + 2);
             encoder.encode(alpha, scale, alphap);
             //calculate and encode the weights gamma and 1 - gamma at low precision
             T = (1. + sqrt(1. + 4 * t * t)) / 2.;
@@ -200,9 +216,9 @@ int Nesterov_GD(bool ringdim) {
             allsum1 = weighttemp1;
             //all sum on the database ROWS to create inner products
 
-            for (int i = 0; i < log2(16); i++) {
+            for (unsigned j = 0; i < log2(16); j++) {
                 temp = allsum1;
-                evaluator.rotate_vector_inplace(temp, pow(2, i), gal_keys);
+                evaluator.rotate_vector_inplace(temp, pow(2, j), gal_keys);
                 evaluator.add_inplace(allsum1, temp);
             }
            
@@ -214,9 +230,9 @@ int Nesterov_GD(bool ringdim) {
 
             //replicating the inner product across the columns of a 16 x nrow matrix
 
-            for (int i = 0; i < log2(16); i++) {
+            for (unsigned j = 0; j < log2(16); j++) {
                 temp = allsum1;
-                evaluator.rotate_vector(temp, -pow(2, i), gal_keys, temp);
+                evaluator.rotate_vector(temp, -pow(2, j), gal_keys, temp);
                 evaluator.add_inplace(allsum1, temp);
             }
 
@@ -254,9 +270,9 @@ int Nesterov_GD(bool ringdim) {
             evaluator.rescale_to_next_inplace(allsum1);//high rescale as many levels above beta
 
             //time to allsum the columns.
-            for (int i = 0; i < log2(nrow); i++) {
+            for (unsigned j = 0; j < log2(nrow); j++) {
                 temp = poly1temp;
-                evaluator.rotate_vector(temp, 16 * pow(2, i), gal_keys, temp);
+                evaluator.rotate_vector(temp, 16 * pow(2, j), gal_keys, temp);
                 evaluator.add_inplace(poly1temp, temp);
             }
 
@@ -308,21 +324,21 @@ int Nesterov_GD(bool ringdim) {
             encoder.decode(p1, w1);
             weights.clear();
 
-            for (int i = 0; i < nrow; i++) {
-                for (int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
+            for (unsigned int i = 0; i < nrow; i++) {
+                for (unsigned int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
                 weightsmat.push_back(weights);
                 weights.clear();
             }
 
             weights = weightsmat[0];
 
-            for (int i = 1; i < nrow; i++) {
-                for (int j = 0; j < nfeatures; j++)weights[j] += weightsmat[i][j];
+            for (unsigned int i = 1; i < nrow; i++) {
+                for (unsigned int j = 0; j < nfeatures; j++)weights[j] += weightsmat[i][j];
 
             }
-            for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
-            cout << "iteration " << i << " AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
-            cout << "iteration " << i << " accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
+            for (unsigned int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
+            cout << "iteration " <<  i + 1 << " AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
+            cout << "iteration " << i + 1<< " accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
 
             weightsmat.clear();
             weights.clear();
@@ -338,18 +354,18 @@ int Nesterov_GD(bool ringdim) {
 
         weights.clear();
 
-        for (int i = 0; i < nrow; i++) {
-            for (int j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
+        for (unsigned i = 0; i < nrow; i++) {
+            for (unsigned j = 0; j < 10; j++)weights.push_back(w1[16.0 * i + 1.0 * j]);
             weightsmat.push_back(weights);
             weights.clear();
         }
 
         weights = weightsmat[0];
 
-        for (int i = 1; i < nrow; i++) {
-            for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
+        for (unsigned i = 1; i < nrow; i++) {
+            for (unsigned j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
         }
-        for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
+        for (unsigned i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
         cout << "fold " << l + 1 << " AUC is " << 100 * getAUC(weights, cvtest[l], 8) << "%\n";
         cout << "fold " << l + 1 << " accuracy is " << accuracy_LR(weights, cvtest[l], 8) << "%\n";
         accuracy += accuracy_LR(weights, cvtest[l], 8);
@@ -360,18 +376,27 @@ int Nesterov_GD(bool ringdim) {
     return 0;
 }
 
-int Nesterov_GD_split(bool ringdim) {
+int Nesterov_GD_split(const unsigned int precision) {
     //implements above method when dataset is too large to fit into single ciphertext, so splits
     //into two matrices each with 8 columns
+    const auto parameter_iter = supported_parameters.find(precision);
+    if(parameter_iter == supported_parameters.cend()) {
+        cerr << "Error: unsupproted parameter pack requested. Please try with one of"
+            "the supported parameter sets.\n";
+        exit(1);
+    }
+
+    const auto &parameter_set = parameter_iter->second;
+    cout << "Running Nesterov Accelerated Gradient Descent:\n";
     EncryptionParameters parms(scheme_type::CKKS);
-    size_t poly_modulus_degree = (ringdim) ? 32768 : 65536;
-    int x = (ringdim) ? 25 : 55;
+    constexpr size_t poly_modulus_degree = 32768;
     parms.set_poly_modulus_degree(poly_modulus_degree);
-    vector<int> mod;
-    mod.push_back(40);
-    for (int i = 0; i < x; i++)mod.push_back(30);
-    mod.push_back(40);
-    x = ringdim ? 6 : 11;
+    
+    vector<int> mod(parameter_set.number_of_primes+2, 
+                    parameter_set.middle_prime_length);
+    mod[0] = parameter_set.sentinel_prime_length;
+    mod[parameter_set.number_of_primes+1] = parameter_set.sentinel_prime_length;
+    
     parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
     cout << "Generating context..." << endl;
     auto start = chrono::steady_clock::now();
@@ -394,7 +419,7 @@ int Nesterov_GD_split(bool ringdim) {
     size_t slot_count = encoder.slot_count();
     cout << "Number of slots: " << slot_count << "\n";
     //ncol is the number of rows our matrix will have: we need to know this to do all sum on each column
-    int nrow = slot_count / 16;
+    const unsigned int nrow = slot_count / 16;
     dMat Matrix;
     dVec weights;
     ImportDataLR(Matrix, "edin.txt", false, 8);
@@ -402,17 +427,19 @@ int Nesterov_GD_split(bool ringdim) {
     CVrandomSampling(cvtrain, cvtest, Matrix);
     Matrix.clear();
 
-    double scale = pow(2.0, 30);
-    double lowscale = pow(2.0, 20);
-    int n, nfeatures;
+    const double scale = pow(2.0, precision);
+    [[maybe_unused]]const double lowscale = pow(2.0, precision-10);
+    unsigned int n;
+    unsigned int nfeatures;
     Plaintext data1, data2;
     dVec train1, train2;
     Ciphertext dataenc1, dataenc2;
     Plaintext Cp;
-    double a0 = 0.5;
-    double a1 = -1.20096;
-    double a3 = 0.81562;
-    double a4 = a1 / a3;
+    constexpr double a0 = 0.5;
+    constexpr double a1 = -1.20096;
+    constexpr double a3 = 0.81562;
+    constexpr double a4 = a1 / a3;
+    
     double sc;
     double t = 1.;
     double T;
@@ -436,10 +463,9 @@ int Nesterov_GD_split(bool ringdim) {
     dVec w1, w2;
     Plaintext alphap, Ctemp;
     Ciphertext allsum1, allsum2, poly1temp, poly2temp, weighttemp1, weighttemp2, datatemp;
-    double alpha, accuracy, auc;
-    accuracy = 0;
-    auc = 0;
-    for (int l = 0; l < 5; l++) {
+    double alpha{}, accuracy{}, auc{};
+
+    for (unsigned l = 0; l < 5; l++) {
         cout << "starting fold " << l + 1 << "...\n";
         n = cvtrain[l].size();
         nfeatures = cvtrain[l][0].size();
@@ -447,15 +473,15 @@ int Nesterov_GD_split(bool ringdim) {
         encoder.encode(sc, scale, scaler);
         //make the first eight columns one matrix
         train1.clear();
-        for (int i = 0; i < n; i++) {
-            for (int j = 0; j < 8; j++)train1.push_back(cvtrain[l][i][j]);
+        for (unsigned i = 0; i < n; i++) {
+            for (unsigned j = 0; j < 8; j++)train1.push_back(cvtrain[l][i][j]);
         }
         //and the last 2 columns another
         train2.clear();
-        for (int i = 0; i < n; i++) {
-            for (int j = 8; j < 10; j++)train2.push_back(cvtrain[l][i][j]);
+        for (unsigned i = 0; i < n; i++) {
+            for (unsigned j = 8; j < 10; j++)train2.push_back(cvtrain[l][i][j]);
             //fill the rows up with zeroes so it matches with above
-            for (int j = 0; j < 6; j++)train2.push_back(0);
+            for (unsigned j = 0; j < 6; j++)train2.push_back(0);
         }
         cout << "Encoding...";
         start = chrono::steady_clock::now();
@@ -468,7 +494,7 @@ int Nesterov_GD_split(bool ringdim) {
         cout << "creating the matrix C...";
         //creating the matrix C -- start with the message version
         dVec Cm(n * 8.0, 0);
-        for (int i = 0; i < n; i++)Cm[8.0 * i] += 1;
+        for (unsigned int i = 0; i < n; i++)Cm[8.0 * i] += 1;
         //now plaintext version
         encoder.encode(Cm, scale, Cp);
         cout << "done \n";
@@ -496,13 +522,13 @@ int Nesterov_GD_split(bool ringdim) {
         ctsum1 = dataenc1;
         ctsum2 = dataenc2;
 
-        for (int i = 0; i < log2(nrow); i++) {
+        for (unsigned i = 0; i < log2(nrow); i++) {
             temp = ctsum1;
             evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
             evaluator.add_inplace(ctsum1, temp);
         }
 
-        for (int i = 0; i < log2(nrow); i++) {
+        for (unsigned i = 0; i < log2(nrow); i++) {
             temp = ctsum2;
             evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
             evaluator.add_inplace(ctsum2, temp);
@@ -545,17 +571,18 @@ int Nesterov_GD_split(bool ringdim) {
         encoder.decode(p2, w2);
         weights.clear();
 
-        for (int i = 0; i < nrow; i++) {
-            for (int j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
-            for (int j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
+        for (unsigned i = 0; i < nrow; i++) {
+            for (unsigned j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
+            for (unsigned j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
             weightsmat.push_back(weights);
             weights.clear();
         }
+
         weights = weightsmat[0];
-        for (int i = 1; i < nrow; i++) {
-            for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
+        for (unsigned i = 1; i < nrow; i++) {
+            for (unsigned j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
         }
-        for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
+        for (unsigned i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
 
         cout << "1st iteration AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
         cout << "1st iteration accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
@@ -563,7 +590,7 @@ int Nesterov_GD_split(bool ringdim) {
         weightsmat.clear();
         weights.clear();
         //beginning of an iteration:
-        for (int i = 2; i < x; i++) {
+        for (unsigned i = 2; i < parameter_set.number_of_iterations; i++) {
 
             //encode learning rate alpha
             alpha = 10 / (1.0 * i + 1);
@@ -602,7 +629,7 @@ int Nesterov_GD_split(bool ringdim) {
 
             //all sum on the first vector
 
-            for (int i = 0; i < 3; i++) {
+            for (unsigned i = 0; i < 3; i++) {
                 temp = allsum1;
 
                 evaluator.rotate_vector_inplace(temp, pow(2, i), gal_keys);
@@ -630,7 +657,7 @@ int Nesterov_GD_split(bool ringdim) {
 
             //replicating the inner product across the columns of an 8 x nrow matrix
 
-            for (int i = 0; i < 3; i++) {
+            for (unsigned i = 0; i < 3; i++) {
                 temp = allsum1;
                 evaluator.rotate_vector(temp, -pow(2, i), gal_keys, temp);
                 evaluator.add_inplace(allsum1, temp);
@@ -684,13 +711,13 @@ int Nesterov_GD_split(bool ringdim) {
             evaluator.rescale_to_next_inplace(allsum2);
 
             //time to allsum the columns.
-            for (int i = 0; i < log2(nrow); i++) {
+            for (unsigned i = 0; i < log2(nrow); i++) {
                 temp = poly1temp;
                 evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
                 evaluator.add_inplace(poly1temp, temp);
             }
 
-            for (int i = 0; i < log2(nrow); i++) {
+            for (unsigned i = 0; i < log2(nrow); i++) {
                 temp = poly2temp;
                 evaluator.rotate_vector(temp, 8 * pow(2, i), gal_keys, temp);
                 evaluator.add_inplace(poly2temp, temp);
@@ -767,20 +794,21 @@ int Nesterov_GD_split(bool ringdim) {
             encoder.decode(p2, w2);
             weights.clear();
 
-            for (int i = 0; i < nrow; i++) {
-                for (int j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
-                for (int j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
+            for (unsigned i = 0; i < nrow; i++) {
+                for (unsigned j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
+                for (unsigned j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
                 weightsmat.push_back(weights);
                 weights.clear();
             }
 
             weights = weightsmat[0];
 
-            for (int i = 1; i < nrow; i++) {
-                for (int j = 0; j < nfeatures; j++)weights[j] += weightsmat[i][j];
+            for (unsigned i = 1; i < nrow; i++) {
+                for (unsigned j = 0; j < nfeatures; j++)weights[j] += weightsmat[i][j];
 
             }
-            for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
+
+            for (unsigned i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
             cout << "iteration " << i << " AUC is " << 100 * getAUC(weights, cvtrain[l], 8) << "%\n";
             cout << "iteration " << i << " accuracy is " << accuracy_LR(weights, cvtrain[l], 8) << "%\n";
 
@@ -800,19 +828,19 @@ int Nesterov_GD_split(bool ringdim) {
 
         weights.clear();
 
-        for (int i = 0; i < nrow; i++) {
-            for (int j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
-            for (int j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
+        for (unsigned i = 0; i < nrow; i++) {
+            for (unsigned j = 0; j < 8; j++)weights.push_back(w1[8.0 * i + 1.0 * j]);
+            for (unsigned j = 0; j < 2; j++)weights.push_back(w2[8.0 * i + 1.0 * j]);
             weightsmat.push_back(weights);
             weights.clear();
         }
 
         weights = weightsmat[0];
 
-        for (int i = 1; i < nrow; i++) {
-            for (int j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
+        for (unsigned i = 1; i < nrow; i++) {
+            for (unsigned j = 0; j < 10; j++)weights[j] += weightsmat[i][j];
         }
-        for (int i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
+        for (unsigned i = 0; i < weights.size(); i++)weights[i] /= (1. * nrow);
         cout << "fold " << l + 1 << " AUC is " << 100 * getAUC(weights, cvtest[l], 8) << "%\n";
         cout << "fold " << l + 1 << " accuracy is " << accuracy_LR(weights, cvtest[l], 8) << "%\n";
         accuracy += accuracy_LR(weights, cvtest[l], 8);

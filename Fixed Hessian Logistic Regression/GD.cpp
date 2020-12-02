@@ -7,24 +7,38 @@
 using namespace std;
 using namespace seal;
 
-int GD(bool ringdim) {
-  thread_pool::thread_pool tp(std::thread::hardware_concurrency());
+// Create the set of parameters that are to be used for this file.
+// Note: const so that mis-using the [] operator will cause an error.
+static const std::unordered_map<unsigned int, ParameterPack> supported_parameters = {
+    {27, ParameterPack(8, 37, 27, 31)},
+    {30, ParameterPack(6, 40, 30, 25)},
+    {31, ParameterPack(5, 41, 31, 25)}};
+
+int GD(const unsigned int precision, const unsigned int number_of_threads) {
+  
+  const auto& param_iter = supported_parameters.find(precision);
+  if(param_iter == supported_parameters.cend()) {
+      std::cout << "Error: unsupported precision selected. Please enter a supported precision set." << std::endl;
+      exit(1);
+  }
+
+  const auto& parameter_set = param_iter->second;
+
+  thread_pool::thread_pool tp(number_of_threads);
   double accuracy = 0;
   double auc = 0;
   dMat Matrix;
+  
   ImportDataLR(Matrix, "edin.txt", false, 8);
   dMatMat cvtrain, cvtest;
   CVrandomSampling(cvtrain, cvtest, Matrix);
   Matrix.clear();
   EncryptionParameters parms(scheme_type::CKKS);
-  size_t poly_modulus_degree = ringdim ? 32768 : 65536;
-  vector<int> mod;
-  int x = ringdim ? 25 : 57;
-  mod.push_back(38);
-  for (int i = 0; i < x; i++)
-    mod.push_back(28);
-  mod.push_back(38);
-  x = ringdim ? 8 : 16;
+  constexpr size_t poly_modulus_degree = 32768;
+  vector<int> mod(parameter_set.number_of_primes+2, parameter_set.middle_prime_length);
+  mod[0] = parameter_set.sentinel_prime_length;
+  mod[parameter_set.number_of_primes + 1] = parameter_set.sentinel_prime_length;
+
   parms.set_poly_modulus_degree(poly_modulus_degree);
   parms.set_coeff_modulus(CoeffModulus::Create(poly_modulus_degree, mod));
   cout << "Generating context..." << endl;
@@ -48,11 +62,11 @@ int GD(bool ringdim) {
   CKKSEncoder encoder(context);
 
   size_t slot_count = encoder.slot_count();
-  double a1 = -1.20096;
-  double a3 = 0.81562;
-  double a4 = a1 / a3;
+  constexpr double a1 = -1.20096;
+  constexpr double a3 = 0.81562;
+  constexpr double a4 = a1 / a3;
   double sc;
-  double scale = pow(2.0, 28);
+  double scale = pow(2.0, precision);
   cout << "encoding polynomial coefficients..." << endl;
   Plaintext coeff3, coeff4;
   encoder.encode(2 * a3, scale, coeff3);
@@ -60,7 +74,7 @@ int GD(bool ringdim) {
   cout << "done \n";
   cout << "Number of slots: " << slot_count << "\n";
 
-  int n, nfeatures;
+  unsigned int n, nfeatures;
 
   pVec data;
   Plaintext plain, scaler, scaler1, coeff4temp;
@@ -69,7 +83,7 @@ int GD(bool ringdim) {
   Ciphertext datatemp;
   Ciphertext allsum, temp;
   cVec Beta;
-  for (int l = 0; l < 5; l++) {
+  for (unsigned l = 0; l < 5; l++) {
     cout << "starting fold " << l + 1 << "...\n";
 
     Beta.clear();
@@ -81,7 +95,7 @@ int GD(bool ringdim) {
     sc = 4.0 / (1.0 * n);
     cout << "Encoding..." << endl;
     start = chrono::steady_clock::now();
-    for (int i = 0; i < nfeatures; i++) {
+    for (unsigned i = 0; i < nfeatures; i++) {
       input.clear();
       for (unsigned int j = 0; j < cvtrain[l].size(); j++)
         input.push_back(cvtrain[l][j][i]);
@@ -96,7 +110,7 @@ int GD(bool ringdim) {
     start = chrono::steady_clock::now();
     cout << "Encrypting..." << endl;
     dataenc.clear();
-    for (int i = 0; i < nfeatures; i++) {
+    for (unsigned i = 0; i < nfeatures; i++) {
       encryptor.encrypt(data[i], datatemp);
       dataenc.push_back(datatemp);
     }
@@ -116,12 +130,12 @@ int GD(bool ringdim) {
     Beta.resize(nfeatures);
     ctsum.resize(nfeatures);
 
-    for (int i = 0; i < nfeatures; i++) {
+    for (unsigned i = 0; i < nfeatures; i++) {
       tp.push([i, &Beta, &ctsum, &mutex, &evaluator, &scaler, &scaler1,
                &dataenc, slot_count, &gal_keys] {
         auto allsum = dataenc[i];
 
-        for (int j = 0; j < log2(slot_count); j++) {
+        for (unsigned j = 0; j < log2(slot_count); j++) {
           auto temp = allsum;
           evaluator.rotate_vector(temp, pow(2, j), gal_keys, temp);
           evaluator.add_inplace(allsum, temp);
@@ -142,11 +156,12 @@ int GD(bool ringdim) {
     tp.wait_work();
 
     weights.clear();
-    for (int k = 0; k < nfeatures; k++) {
+    for (unsigned k = 0; k < nfeatures; k++) {
       decryptor.decrypt(Beta[k], plain);
       encoder.decode(plain, input);
       weights.push_back(input[0]);
     }
+
     cout << weights.size() << ", " << cvtrain[l][0].size() << "\n";
     cout << "fold " << l + 1 << " 1st iteration AUC is "
          << 100 * getAUC(weights, cvtrain[l], 8) << "%,";
@@ -161,8 +176,8 @@ int GD(bool ringdim) {
     Ciphertext mult, innerprod, square;
     double alpha;
     // iterations
-    for (int k = 2; k < x; k++) {
-      alpha = 10 / (k + 1);
+    for (unsigned k = 1; k < parameter_set.number_of_iterations; k++) {
+      alpha = 10 / (k + 2);
       encoder.encode(alpha * sc, scale, scaler);
       encoder.encode(alpha, scale, alphap);
       evaluator.mod_switch_to_next_inplace(alphap);
@@ -173,7 +188,7 @@ int GD(bool ringdim) {
       evaluator.relinearize_inplace(innerprod, relin_keys);
       evaluator.rescale_to_next_inplace(innerprod);
       std::vector<Ciphertext> mults(nfeatures - 1);
-      for (int i = 1; i < nfeatures; i++) {
+      for (unsigned i = 1; i < nfeatures; i++) {
         tp.push([&Beta, &mults, &mutex, &dataenc, i, &evaluator, &relin_keys] {
           Ciphertext mult;
           evaluator.mod_switch_to(dataenc[i], Beta[i].parms_id(), mult);
@@ -204,7 +219,7 @@ int GD(bool ringdim) {
       mults.resize(nfeatures);
       // Note: this loop is done in parallel: we don't have any dependencies, so
       // we can use a temporary ciphertext (called mult) in each thread.
-      for (int j = 0; j < nfeatures; j++) {
+      for (unsigned j = 0; j < nfeatures; j++) {
         tp.push([&evaluator, &mutex, &dataencscale, j, slot_count, &gal_keys, &innerprod, &relin_keys,
                  &square, &mults, &scaler] {
           Ciphertext mult;
@@ -222,7 +237,7 @@ int GD(bool ringdim) {
           evaluator.multiply_plain_inplace(mult, local_scale);
           evaluator.rescale_to_next_inplace(mult);
           
-          for (int i = 0; i < log2(slot_count); i++) {
+          for (unsigned i = 0; i < log2(slot_count); i++) {
             Ciphertext temp = mult;
             evaluator.rotate_vector_inplace(temp, pow(2, i), gal_keys);
             evaluator.add_inplace(mult, temp);
@@ -237,7 +252,7 @@ int GD(bool ringdim) {
       // before continuing.
       tp.wait_work();
 
-      for (int j = 0; j < nfeatures; j++) {
+      for (unsigned j = 0; j < nfeatures; j++) {
         tp.push([j, &Beta, &ctsum, &mults, &alphap, &evaluator, &mutex]() {
           Ciphertext temp;
           auto mult = mults[j];
@@ -269,12 +284,12 @@ int GD(bool ringdim) {
       tp.wait_work();
 
       weights.clear();
-      for (int i = 0; i < nfeatures; i++) {
+      for (unsigned i = 0; i < nfeatures; i++) {
         decryptor.decrypt(Beta[i], plain);
         encoder.decode(plain, input);
         weights.push_back(input[0]);
       }
-      cout << "iteration " << k << " AUC is "
+      cout << "iteration " << k + 1<< " AUC is "
            << 100 * getAUC(weights, cvtrain[l], 8) << "%,";
       cout << "iteration " << k << " accuracy is "
            << accuracy_LR(weights, cvtrain[l], 8) << "%\n";

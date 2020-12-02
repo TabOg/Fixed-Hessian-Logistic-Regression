@@ -2,10 +2,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <numeric>
 #include <fstream>
 #include <sstream>
 #include "math.h"
 #include "databasetools.h"
+
 
 
 double sigmoid(double x) {
@@ -18,7 +20,7 @@ int LR_iteration(dMat Matrix, dVec& weights, double learning_rate, int n, int nf
     ////loop over the entries
     for (int i = 0; i < n; i++) {
         //find the value of the sigmoid function
-        double sig = sigmoid(-inner_prod(Matrix[i], weights));
+        double sig = sigmoid(-std::inner_product(Matrix[i].cbegin(), Matrix[i].cend(), weights.cbegin(), 0.0));
         //loop over the features, adding to the grad vector:
         for (int j = 0; j < nfeatures; j++) grad[j] += sig * Matrix[i][j];
     }
@@ -43,7 +45,7 @@ int LR(dMat Matrix, dVec& weights, int max_iter, double learning_rate) {
 int predict_LR(dVec weights, dVec sample, double divisor, double threshold) {
     //calculate a prediction {1,-1} for weights (b0,b1,b2..,) and a sample (z0/div,z1/div,z2/div,...,) 
     //compute probability
-    double prob = sigmoid(divisor * divisor * sample[0] * inner_prod(weights, sample));
+    double prob = sigmoid(divisor * divisor * sample[0] * std::inner_product(weights.cbegin(), weights.cend(), sample.cbegin(), 0.0));
     //compare to threshold
     if (prob > threshold) return 1;
     else return -1;
@@ -51,7 +53,7 @@ int predict_LR(dVec weights, dVec sample, double divisor, double threshold) {
 
 double accuracy_LR(dVec weights, dMat test, double divisor,double threshold) {
     double score = 0;
-    for (int i = 0; i < test.size(); i++) {
+    for (unsigned i = 0; i < test.size(); i++) {
         if (predict_LR(weights, test[i], divisor, threshold) == divisor * test[i][0])score++;
     }
     return 100 * score / test.size();
@@ -63,17 +65,20 @@ double getAUC(dVec theta, dMat zTest,double divisor) {
     dVec xtheta_y1;
     dVec xtheta_y0;
 
-    for (int i = 0; i < zTest.size(); i++) {
+    xtheta_y1.reserve(zTest.size()/2);
+    xtheta_y0.reserve(zTest.size()/2);
+    
+    for (unsigned i = 0; i < zTest.size(); i++) {
         if (divisor * zTest[i][0] == 1.0) {
-            xtheta_y1.push_back(divisor * divisor * zTest[i][0] * inner_prod(zTest[i], theta));
+            xtheta_y1.push_back(divisor * divisor * zTest[i][0] * std::inner_product(zTest[i].cbegin(), zTest[i].cend(), theta.cbegin(), 0.0));
         }
         else {
-            xtheta_y0.push_back(divisor * divisor * zTest[i][0] * inner_prod(zTest[i], theta));
+            xtheta_y0.push_back(divisor * divisor * zTest[i][0] * std::inner_product(zTest[i].cbegin(), zTest[i].cend(), theta.cbegin(), 0.0));
         }
     }
     double auc = 0.0;
-    for (int i = 0; i < xtheta_y1.size(); ++i) {
-        for (int j = 0; j < xtheta_y0.size(); ++j) {
+    for (unsigned i = 0; i < xtheta_y1.size(); ++i) {
+        for (unsigned j = 0; j < xtheta_y0.size(); ++j) {
                 if (xtheta_y0[j] <= xtheta_y1[i]) auc++;
             }
         }
@@ -93,7 +98,7 @@ int LR_NV_iteration(dMat train, dVec& beta, dVec& v, double alpha, double gamma,
     double sig;
     for (int i = 0; i < n; i++) {
         //find the value of the sigmoid function
-        sig = sigmoid(-inner_prod(train[i], v));/*1 / 2 - 1.20096 * inner_prod(train[i], v) / 8 + 0.81562 * pow(inner_prod(train[i], v) / 8, 3)*/;
+        sig = sigmoid(-std::inner_product(train[i].cbegin(), train[i].cend(), v.cbegin(), 0.0));/*1 / 2 - 1.20096 * inner_prod(train[i], v) / 8 + 0.81562 * pow(inner_prod(train[i], v) / 8, 3)*/;
         sig /= n;
         //loop over the features, adding to the grad vector:
         for (int l = 0; l < nfeatures; l++) J[l] += sig * train[i][l];
@@ -142,7 +147,7 @@ int LR_iteration_lowdeg(dMat Matrix, dVec& weights, double learning_rate, int n,
     ////loop over the entries
     for (int i = 0; i < n; i++) {
         //find the value of the low degree sigmoid approximation, 
-        double sig = 0.5 - 0.15625 * inner_prod(Matrix[i], weights);
+        double sig = 0.5 - 0.15625 * std::inner_product(Matrix[i].cbegin(), Matrix[i].cend(), weights.cbegin(), 0.0);
         //loop over the features, adding to the grad vector:
         for (int j = 0; j < nfeatures; j++) grad[j] += sig * Matrix[i][j];
     }

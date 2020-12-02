@@ -29,7 +29,6 @@ int main() {
     string iternum;
     string ringdim;
     bool invalid = true;
-    bool ringbool{};
     string encoding;
     do
     {
@@ -76,76 +75,72 @@ int main() {
         }
         Plaintext_LR_NAG("edin.txt", stoi(iternum));
         break;
-    case 3:
-        cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-        cin >> ringdim;
-        while (!is_number(ringdim)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-            cin >> ringdim;
-        }
-        while (!(stoi(ringdim) == 0 || stoi(ringdim) == 1)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-            cin >> ringdim;
-        }
-        ringbool = (stoi(ringdim) == 1);
-        GD(ringbool);
-        break;
-    case 4:
-        cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-        cin >> ringdim;
-        while (!is_number(ringdim)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-            cin >> ringdim;
-        }
-        while (!(stoi(ringdim) == 0 || stoi(ringdim) == 1)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-            cin >> ringdim;
-        }
-        ringbool = (stoi(ringdim) == 1);
+    case 3: {
+            cout << "Select the precision you would like to run at:";
+            std::string precision;
+            cin >> precision;
+            while (!is_number(precision)) {
+                cout << "Please enter a whole number\n";
+                cout << "Select the precision you would like to run at:";
+                cin >> precision;
+            }
+        
+            cout << "Enter the number of threads you would like to run on (0 for all threads):";
+            std::string threads;
+            cin >> threads;
+            while(!is_number(threads)) {
+                cout << "Please enter a whole number\n";
+                cout << "Enter the number of threads you would like to run on";
+                cin  >> threads;
+            }
 
-        Nesterov_GD(ringbool);
+            const unsigned int nr_precision =  stoi(precision);
+            const unsigned int nr_threads = stoi(threads);
+   
+            GD(nr_precision, nr_threads);
+        }
+        break;
+    case 4: {
+                cout << "Select the precision you would like to run at:";
+                string precision;
+                cin >> precision;
+                while (!is_number(precision)) {
+                    cout << "Please enter a whole number\n";
+                    cout << "Select the precision you would like to run at:";
+                    cin >> precision;
+                }
+            
+                const unsigned int nr_precision = stoi(precision);
+                Nesterov_GD(nr_precision);
+            }
+
         break;
 
-    case 5:
-        cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-        cin >> ringdim;
-        while (!is_number(ringdim)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-            cin >> ringdim;
-        }
-        while (!(stoi(ringdim) == 0 || stoi(ringdim) == 1)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select N = 2^16 (0) or N = 2^15 (1):";
-            cin >> ringdim;
+    case 5: {
+        cout << "Select the precision you would like to run at:";
+        std::string precision;
+        cin >> precision;
+        while (!is_number(precision)) {
+            cout << "Please enter a whole number\n";
+            cout << "Select the precision you would like to run at:";
+            cin >> precision;
         }
         
-        ringbool = (stoi(ringdim) == 1);
-        cout << "Select Encoding Style: Feature (1) or Compact (0):";
-        cin >> encoding;
-        while (!is_number(encoding)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select Encoding Style: Feature (1) or Compact (0):";
-            cin >> encoding;
+        cout << "Enter the number of threads you would like to run on (0 for all threads):";
+        std::string threads;
+        cin >> threads;
+        while(!is_number(threads)) {
+            cout << "Please enter a whole number\n";
+            cout << "Enter the number of threads you would like to run on";
+            cin  >> threads;
         }
-        /*
-        while (!(stoi(encoding) == 0 || stoi(encoding) == 1)) {
-            cout << "Please enter either 0 or 1!\n";
-            cout << "Select Encoding Style: Feature (1) or Compact (0):";
-            cin >> encoding;
-        }
-        */
-        
 
-        //if (stoi(encoding) == 1)Fixed_Hessian_Chebyshev(ringbool);
-        //else Fixed_Hessian_Compact(ringbool);
-        Fixed_Hessian_Chebyshev(ringbool);
+        const unsigned int nr_precision =  stoi(precision);
+        const unsigned int nr_threads = stoi(threads);
+        Fixed_Hessian_Chebyshev(nr_precision, nr_threads);
+        }
+    
         break;
-
     case 6:
         Fixed_Hessian_Taylor();
         break;
