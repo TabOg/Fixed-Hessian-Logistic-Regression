@@ -1,3 +1,0 @@
-/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/CMakeFiles/rebuild_cache.dir
-/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/CMakeFiles/main.dir
-/home/tabog/Fixed-Hessian-Logistic-Regression/Fixed Hessian Logistic Regression/CMakeFiles/edit_cache.dir

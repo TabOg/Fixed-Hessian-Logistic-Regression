@@ -14,34 +14,48 @@
 using namespace std;
 using namespace seal;
 
+enum ErrorPos {
+    NO_ERROR = 0;
+    UNABLE_TO_OPEN_FILE = 1,
+    UNABLE_TO_READ_FILE = 2,
+    FILE_DIMENSION_ERROR = 3,
+};
+
+constexpr std::string ErrorMessage[4] = {"No error reported.",
+                                         "Unable to open the file. Please check the file path and make sure that it is correct.", 
+                                         "Unable to read the file. Is the first line malformed?", 
+                                         "The number of columns in your file appears to be inconsistent."};
+
+
 int ImportData(dMat& Matrix, string filename) {
 	//open file
 	ifstream inFile;
 	inFile.open(filename);
 	//check file is open
 	if (!inFile) {
-		cout << "unable to open file";
-		return 0;
+		cout << ErrorMessage[ErrorPos::UNABLE_TO_OPEN_FILE];
+		exit(ErrorPos::UNABLE_TO_OPEN_FILE);
 	}
 
 	string line;
 	char split_char = '\t';
-	int long ncolumns;
+	unsigned ncolumns{};
 	//process first row, moving class to the front and extracting number of columns
 	if (getline(inFile, line)) {
 		istringstream split(line);
 		vector<string> record;
-		for (string entry; getline(split, entry, split_char); record.push_back(entry));
+		for (string entry; getline(split, entry, split_char); 
+        record.emplace_back(entry));
 		ncolumns = record.size();
 		vector<double> entry1;
+        entry1.reserve(ncolumns);
 		entry1.push_back(stod(record[ncolumns - 1]) * 2 - 1);
-		for (int i = 0; i < ncolumns - 1; i++) entry1.push_back(stod(record[i]));
-
+		for (unsigned i = 0; i < ncolumns - 1; i++) 
+            entry1.emplace_back(stod(record[i]));
 		//add to matrix
 		Matrix.push_back(entry1);
-	}
-	else {
-		cout << "could not read file" << endl;
+	} else {
+		cout << ErrorMessage[ErrorPos::UNABLE_TO_READ_FILE];
         exit(1);
 	}
 	//process rest of the data
@@ -51,45 +65,31 @@ int ImportData(dMat& Matrix, string filename) {
 		for (string entry; getline(split, entry, split_char); record.push_back(entry));
 		//record should have the same number of features
 		if (record.size() != ncolumns) {
-			cout << "database dimension error" << endl;
-            exit(2);
+			cout << ErrorMessage[ErrorPos::FILE_DIMENSION_ERROR];
+            exit(ErrorPos::FILE_DIMENSION_ERROR);
 		}
 		//define a new entry
 		vector<double> entryi;
+        entryi.reserve(ncolumns);
 		entryi.push_back(stod(record[ncolumns - 1]) * 2 - 1);
-		for (int i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]));
+		for (unsigned i = 0; i < ncolumns - 1; i++) entryi.push_back(stod(record[i]));
 		//add it to the matrix
 		Matrix.push_back(entryi);
 	}
-
-	return 0;
 }
 
-double inner_prod(dVec v, dVec u, int start) {
-	if (v.size() != u.size()) {
-		cout << "error - vectors are different sizes";
-		return 0;
-	}
-	else {
-		double prod = 0.0;
-		for (int i = start; i < u.size(); i++) prod += v[i] * u[i];
-		return prod;
-	}
-
-}
-
-void AllSum(Ciphertext encrypted, Ciphertext& allsum, int slot_count, shared_ptr<SEALContext> context, GaloisKeys gal_keys) {
+void AllSum(const Ciphertext& encrypted, Ciphertext& allsum, const unsigned slot_count, shared_ptr<SEALContext> context, const GaloisKeys& gal_keys) {
 	Evaluator evaluator(context);
 	allsum = encrypted;
 	Ciphertext temp = encrypted;
-	for (int j = 1; j < slot_count; j++) {
+	for (unsigned j = 1; j < slot_count; j++) {
 		evaluator.rotate_vector(temp, 1, gal_keys, temp);
 		evaluator.add(allsum, temp, allsum);
 	}
 }
 
 
-int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, char split_char) {
+void ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, char split_char) {
 	//This function imports data from a .txt file with the following adjustments: changes classification
 	//from {0,1} to {-1,1}; moves the classification to the first (0th) column if it is not there; 
 	//multiplies each entry 1 - d by the classification; divides all entries by the divisor.
@@ -102,8 +102,8 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 	inFile.open(filename);
 	//check file is open
 	if (!inFile) {
-		cout << "unable to open file";
-		return 0;
+		cout << "Unable to open file. Please check the file path";
+		exit(1);
 	}
 
 	string line;
@@ -157,8 +157,9 @@ int ImportDataLR(dMat& Matrix, string filename, bool first,  double divisor, cha
 		//add it to the matrix
 		Matrix.push_back(entryi);
 	}
-	return 0;
 }
+
+
 bool is_number(const std::string& s) {
 	return !s.empty() && std::all_of(s.begin(), s.end(), ::isdigit);
 }
