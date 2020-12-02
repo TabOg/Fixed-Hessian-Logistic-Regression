@@ -136,3 +136,18 @@ double T2(double X) {
     return (-1.*8) / (X * X + 6 * X + 1);
 }
 
+int LR_iteration_lowdeg(dMat Matrix, dVec& weights, double learning_rate, int n, int nfeatures) {
+    //temp grad vector
+    dVec grad(nfeatures, 0);
+    ////loop over the entries
+    for (int i = 0; i < n; i++) {
+        //find the value of the low degree sigmoid approximation, 
+        double sig = 0.5 - 0.15625 * inner_prod(Matrix[i], weights);
+        //loop over the features, adding to the grad vector:
+        for (int j = 0; j < nfeatures; j++) grad[j] += sig * Matrix[i][j];
+    }
+    //add to the weight vector
+    for (int i = 0; i < nfeatures; i++) weights[i] += learning_rate * grad[i] / (1.0 * n);
+    return 0;
+}
+
